@@ -1,0 +1,6 @@
+data/com.github.nozwock.PokeBook.desktop.in.in
+data/com.github.nozwock.PokeBook.gschema.xml.in
+data/com.github.nozwock.PokeBook.metainfo.xml.in.in
+data/resources/ui/shortcuts.ui
+data/resources/ui/window.ui
+src/application.rs
