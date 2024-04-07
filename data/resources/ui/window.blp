@@ -21,22 +21,85 @@ menu primary_menu {
 }
 
 template $ExampleApplicationWindow: Adw.ApplicationWindow {
-  Adw.ToolbarView {
-    [top]
-    Adw.HeaderBar headerbar {
-      [end]
-      MenuButton appmenu_button {
-        icon-name: 'open-menu-symbolic';
-        menu-model: primary_menu;
-      }
-    }
+  height-request: 360;
+  width-request: 360;
 
-    Label label {
-      label: _('Hello world!');
+  Adw.Breakpoint {
+    condition ("max-width: 1200")
 
-      styles [
-        "title-header",
-      ]
+    setters {
+      split_view.collapsed: true;
+      sidebar_button.visible: true;
     }
   }
+
+  // Probably a better way to do this...
+  Adw.Breakpoint {
+    condition ("max-width: 720")
+
+    setters {
+      nav_split.collapsed: true;
+      split_view.collapsed: true;
+    }
+  }
+
+  content: Adw.OverlaySplitView split_view {
+    show-sidebar: bind sidebar_button.active bidirectional;
+
+    sidebar: Adw.NavigationPage sidebar_page {
+      width-request: 300;
+
+      Adw.ToolbarView {
+        [top]
+        Adw.HeaderBar {}
+
+        Adw.StatusPage {
+          title: "Categories";
+        }
+      }
+    };
+
+    content: Adw.NavigationPage  {
+      Adw.NavigationSplitView nav_split {
+        sidebar: Adw.NavigationPage items_page {
+          width-request: 360;
+
+          Adw.ToolbarView {
+            [top]
+            Adw.HeaderBar {
+              [start]
+              ToggleButton sidebar_button {
+                icon-name: "sidebar-show-symbolic";
+                active: true;
+              }
+
+              [end]
+              MenuButton appmenu_button {
+                icon-name: 'open-menu-symbolic';
+                menu-model: primary_menu;
+              }
+            }
+
+            Adw.StatusPage {
+              title: "Items";
+              description: "Dynamically populated";
+            }
+          }
+        };
+
+        content: Adw.NavigationPage content_page {
+          width-request: 360;
+
+          Adw.ToolbarView {
+            [top]
+            Adw.HeaderBar {}
+
+            Adw.StatusPage {
+              title: "Content";
+            }
+          }
+        };
+      }
+    };
+  };
 }

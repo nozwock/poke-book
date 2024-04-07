@@ -11,15 +11,15 @@ mod imp {
     #[derive(Debug, gtk::CompositeTemplate)]
     #[template(resource = "/com/github/nozwock/PokeBook/ui/window.ui")]
     pub struct ExampleApplicationWindow {
-        #[template_child]
-        pub headerbar: TemplateChild<adw::HeaderBar>,
+        // #[template_child]
+        // pub headerbar: TemplateChild<adw::HeaderBar>,
         pub settings: gio::Settings,
     }
 
     impl Default for ExampleApplicationWindow {
         fn default() -> Self {
             Self {
-                headerbar: TemplateChild::default(),
+                // headerbar: TemplateChild::default(),
                 settings: gio::Settings::new(APP_ID),
             }
         }

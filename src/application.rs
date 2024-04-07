@@ -5,7 +5,7 @@ use adw::prelude::*;
 use adw::subclass::prelude::*;
 use gtk::{gdk, gio, glib};
 
-use crate::config::{APP_ID, PKGDATADIR, PROFILE, VERSION};
+use crate::config::{self, APP_ID, PKGDATADIR, PROFILE, VERSION};
 use crate::window::ExampleApplicationWindow;
 
 mod imp {
@@ -116,11 +116,15 @@ impl ExampleApplication {
     fn show_about_dialog(&self) {
         let dialog = adw::AboutDialog::builder()
             .application_icon(APP_ID)
+            .application_name("PokeBook")
+            .developer_name("nozwock")
             // Insert your license of choice here
             // .license_type(gtk::License::MitX11)
             // Insert your website here
             // .website("https://gitlab.gnome.org/bilelmoussaoui/poke-book/")
             .version(VERSION)
+            .website("https://github.com/nozwock/poke-book")
+            .issue_url("https://github.com/nozwock/poke-book/issues")
             .translator_credits(gettext("translator-credits"))
             .developers(vec!["nozwock"])
             .artists(vec!["nozwock"])
