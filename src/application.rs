@@ -56,7 +56,7 @@ mod imp {
             gtk::Window::set_default_icon_name(APP_ID);
 
             app.setup_css();
-            app.setup_gactions();
+            app.setup_actions();
             app.setup_accels();
         }
     }
@@ -75,7 +75,7 @@ impl ExampleApplication {
         self.imp().window.get().unwrap().upgrade().unwrap()
     }
 
-    fn setup_gactions(&self) {
+    fn setup_actions(&self) {
         // Quit
         let action_quit = gio::ActionEntry::builder("quit")
             .activate(move |app: &Self, _, _| {
