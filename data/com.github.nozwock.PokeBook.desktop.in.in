@@ -1,6 +1,6 @@
 [Desktop Entry]
 Name=PokeBook
-Comment=Write a GTK + Rust application
+Comment=
 Type=Application
 Exec=poke-book
 Terminal=false
