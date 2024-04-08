@@ -182,6 +182,7 @@ impl ExampleApplicationWindow {
                     _ = tx.send(get_entries(group).await).await.inspect_err(|e| tracing::error!(%e));
                 }));
             });
+        imp.group_choice.notify("selected-item");
 
         let browse_list = imp
             .browse_list
@@ -197,7 +198,7 @@ impl ExampleApplicationWindow {
 
                     let factory = SignalListItemFactory::new();
                     factory.connect_setup(move |_, list_item| {
-                        let label = Label::new(None);
+                        let label = Label::builder().css_classes(["osd", "pad-8"]).build();
                         list_item
                             .downcast_ref::<gtk::ListItem>()
                             .expect("Value has to be a ListItem")
