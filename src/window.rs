@@ -1,5 +1,6 @@
 use adw::prelude::*;
 use adw::subclass::prelude::*;
+use gtk::builders::SingleSelectionBuilder;
 use gtk::glib::clone;
 use gtk::glib::translate::FromGlib;
 use gtk::{
@@ -26,6 +27,8 @@ mod imp {
         pub items_search_entry: TemplateChild<gtk::SearchEntry>,
         #[template_child]
         pub browse_list: TemplateChild<gtk::ListView>,
+        #[template_child]
+        pub sidebar_split: TemplateChild<adw::NavigationSplitView>,
         pub settings: gio::Settings,
     }
 
@@ -36,6 +39,7 @@ mod imp {
                 group_choice: Default::default(),
                 items_search_entry: Default::default(),
                 browse_list: Default::default(),
+                sidebar_split: Default::default(),
             }
         }
     }
@@ -140,7 +144,6 @@ impl ExampleApplicationWindow {
                 None::<Expression>,
                 "name",
             )));
-
         imp.group_choice
             .bind_property(
                 "selected-item",
@@ -149,7 +152,9 @@ impl ExampleApplicationWindow {
                     .expect("The value is of type gtk::SearchEntry"),
                 "placeholder-text",
             )
-            .transform_to(|_, s: adw::EnumListItem| Some(format!("Search in {}", s.name())))
+            .transform_to(|_, list_item: adw::EnumListItem| {
+                Some(format!("Search in {}", list_item.name()))
+            })
             .sync_create()
             .build();
 
@@ -177,6 +182,10 @@ impl ExampleApplicationWindow {
 
         let (tx, rx) = async_channel::unbounded::<anyhow::Result<Vec<String>>>();
 
+        let sidebar_split = imp
+            .sidebar_split
+            .downcast_ref::<adw::NavigationSplitView>()
+            .unwrap();
         imp.group_choice
             .connect_selected_item_notify(move |choice| {
                 let group = unsafe { pokeapi::ResourceGroup::from_glib(choice.selected() as i32) };
@@ -200,7 +209,7 @@ impl ExampleApplicationWindow {
 
                     let factory = SignalListItemFactory::new();
                     factory.connect_setup(move |_, list_item| {
-                        let label = Label::builder().build();
+                        let label = Label::builder().xalign(0.).build();
                         list_item
                             .downcast_ref::<gtk::ListItem>()
                             .expect("Value has to be a ListItem")
@@ -226,7 +235,10 @@ impl ExampleApplicationWindow {
                         label.set_label(&name);
                     });
 
-                    let selection_model = SingleSelection::new(Some(browse_model));
+                    let selection_model = SingleSelection::new(None::<gio::ListStore>);
+                    selection_model.set_autoselect(false);
+                    selection_model.set_model(Some(&browse_model));
+
                     browse_list.set_model(Some(&selection_model));
                     browse_list.set_factory(Some(&factory));
                 }

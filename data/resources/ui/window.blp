@@ -28,15 +28,15 @@ template $ExampleApplicationWindow: Adw.ApplicationWindow {
     condition ("max-width: 720")
 
     setters {
-      sidebar.collapsed: true;
+      sidebar_split.collapsed: true;
     }
   }
 
-  content: Adw.NavigationSplitView sidebar {
+  content: Adw.NavigationSplitView sidebar_split {
+    // max-sidebar-width: 560;
     sidebar: Adw.NavigationPage sidebar_page {
       title: "PokeBook";
-      width-request: 360;
-
+      // width-request: 360;
       Adw.ToolbarView {
         [top]
         Adw.HeaderBar {
@@ -60,9 +60,7 @@ template $ExampleApplicationWindow: Adw.ApplicationWindow {
             // model: Adw.EnumListModel {};
           }
 
-          SearchEntry items_search_entry {
-            hexpand: true;
-          }
+          SearchEntry items_search_entry {}
 
           styles [
             "linked"
@@ -71,25 +69,14 @@ template $ExampleApplicationWindow: Adw.ApplicationWindow {
 
         Adw.ViewStack sidebar_stack {
           Adw.ViewStackPage sidebar_stack_browse_page {
-            child: Box {
-              orientation: vertical;
-              margin-top: 12;
-              margin-bottom: 12;
-              margin-start: 12;
-              margin-end: 12;
+            child: ScrolledWindow {
+              styles [
+              ]
 
-              ScrolledWindow {
-                vexpand: true;
-                hexpand: true;
-
+              ListView browse_list {
                 styles [
+                  "navigation-sidebar",
                 ]
-
-                ListView browse_list {
-                  styles [
-                    "navigation-sidebar",
-                  ]
-                }
               }
             };
           }
