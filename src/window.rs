@@ -281,6 +281,8 @@ impl ExampleApplicationWindow {
                         browse_list.set_factory(Some(&factory));
 
                         sidebar_stack.set_visible_child_name("sidebar_stack_browse_page");
+                    } else {
+                        sidebar_stack.set_visible_child_name("sidebar_stack_error_page");
                     }
                 }
             }),
