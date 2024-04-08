@@ -127,7 +127,6 @@ impl ExampleApplication {
             .issue_url("https://github.com/nozwock/poke-book/issues")
             .translator_credits(gettext("translator-credits"))
             .developers(vec!["nozwock"])
-            .artists(vec!["nozwock"])
             .build();
 
         dialog.present(&self.main_window());
