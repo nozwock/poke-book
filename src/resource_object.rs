@@ -9,28 +9,26 @@ mod imp {
 
     use gtk::glib::Properties;
 
-    use crate::pokeapi::ResourceGroup;
-
     use super::*;
 
     #[derive(Debug, Default, Properties)]
-    #[properties(wrapper_type = super::ResourceObject)]
-    pub struct ResourceObject {
+    #[properties(wrapper_type = super::NamedPokeResourceObject)]
+    pub struct NamedPokeResourceObject {
         // https://github.com/gtk-rs/gtk-rs-core/issues/930
-        #[property(get, set, builder(ResourceGroup::default()))]
-        pub group: RefCell<ResourceGroup>,
+        // #[property(get, set, builder(ResourceGroup::default()))]
+        // pub group: RefCell<ResourceGroup>,
         #[property(get, set)]
-        pub names: RefCell<Vec<String>>,
+        pub name: RefCell<String>,
     }
 
     #[glib::object_subclass]
-    impl ObjectSubclass for ResourceObject {
+    impl ObjectSubclass for NamedPokeResourceObject {
         const NAME: &'static str = "ResourceObject";
-        type Type = super::ResourceObject;
+        type Type = super::NamedPokeResourceObject;
     }
 
     #[glib::derived_properties]
-    impl ObjectImpl for ResourceObject {
+    impl ObjectImpl for NamedPokeResourceObject {
         fn constructed(&self) {
             self.parent_constructed();
         }
@@ -38,19 +36,16 @@ mod imp {
 }
 
 glib::wrapper! {
-    pub struct ResourceObject(ObjectSubclass<imp::ResourceObject>);
+    pub struct NamedPokeResourceObject(ObjectSubclass<imp::NamedPokeResourceObject>);
 }
 
-impl ResourceObject {
-    pub fn new(resource_group: ResourceGroup, names: Vec<String>) -> Self {
-        glib::Object::builder()
-            .property("group", resource_group)
-            .property("names", names)
-            .build()
+impl NamedPokeResourceObject {
+    pub fn new(name: String) -> Self {
+        glib::Object::builder().property("name", name).build()
     }
 }
 
-impl Default for ResourceObject {
+impl Default for NamedPokeResourceObject {
     fn default() -> Self {
         glib::Object::builder().build()
     }

@@ -78,7 +78,12 @@ template $ExampleApplicationWindow: Adw.ApplicationWindow {
               margin-start: 12;
               margin-end: 12;
 
-              ListView browse_list {}
+              ScrolledWindow {
+                vexpand: true;
+                hexpand: true;
+
+                ListView browse_list {}
+              }
             };
           }
 

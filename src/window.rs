@@ -1,9 +1,12 @@
 use adw::prelude::*;
 use adw::subclass::prelude::*;
+use gtk::glib::clone;
 use gtk::glib::translate::FromGlib;
-use gtk::{gio, glib, Expression, PropertyExpression};
+use gtk::{
+    gio, glib, Expression, Label, PropertyExpression, SignalListItemFactory, SingleSelection,
+};
 use poke_book::pokeapi::rustemon_client;
-use poke_book::resource_object::ResourceObject;
+use poke_book::resource_object::NamedPokeResourceObject;
 use poke_book::{pokeapi, tokoi_runtime};
 
 use crate::application::ExampleApplication;
@@ -21,16 +24,18 @@ mod imp {
         pub group_choice: TemplateChild<gtk::DropDown>,
         #[template_child]
         pub items_search_entry: TemplateChild<gtk::SearchEntry>,
+        #[template_child]
+        pub browse_list: TemplateChild<gtk::ListView>,
         pub settings: gio::Settings,
     }
 
     impl Default for ExampleApplicationWindow {
         fn default() -> Self {
             Self {
-                // headerbar: TemplateChild::default(),
                 settings: gio::Settings::new(APP_ID),
                 group_choice: Default::default(),
                 items_search_entry: Default::default(),
+                browse_list: Default::default(),
             }
         }
     }
@@ -63,7 +68,7 @@ mod imp {
 
             // Load latest window state
             obj.load_window_size();
-            obj.setup_widgets();
+            obj.setup_ui();
         }
     }
 
@@ -124,14 +129,14 @@ impl ExampleApplicationWindow {
         }
     }
 
-    fn setup_widgets(&self) {
+    fn setup_ui(&self) {
         let imp = self.imp();
 
-        let categories_model = adw::EnumListModel::new(pokeapi::ResourceGroup::static_type());
-        imp.group_choice.set_model(Some(&categories_model));
+        let group_model = adw::EnumListModel::new(pokeapi::ResourceGroup::static_type());
+        imp.group_choice.set_model(Some(&group_model));
         imp.group_choice
             .set_expression(Some(PropertyExpression::new(
-                categories_model.item_type(),
+                group_model.item_type(),
                 None::<Expression>,
                 "name",
             )));
@@ -148,39 +153,79 @@ impl ExampleApplicationWindow {
         // .sync_create()
         // .build();
 
-        async fn get_entries(group: pokeapi::ResourceGroup) -> anyhow::Result<ResourceObject> {
+        async fn get_entries(group: pokeapi::ResourceGroup) -> anyhow::Result<Vec<String>> {
             // TODO: Time to macro?
             Ok(match group {
-                pokeapi::ResourceGroup::Pokemon => ResourceObject::new(
-                    group,
+                pokeapi::ResourceGroup::Pokemon => {
                     rustemon::pokemon::pokemon::get_all_entries(rustemon_client())
                         .await?
                         .into_iter()
                         .map(|it| it.name)
-                        .collect(),
-                ),
-                pokeapi::ResourceGroup::Moves => ResourceObject::new(
-                    group,
+                        .collect()
+                }
+                pokeapi::ResourceGroup::Moves => {
                     rustemon::moves::move_::get_all_entries(rustemon_client())
                         .await?
                         .into_iter()
                         .map(|it| it.name)
-                        .collect(),
-                ),
+                        .collect()
+                }
             })
         }
+
+        let (tx, rx) = async_channel::unbounded::<anyhow::Result<Vec<String>>>();
 
         imp.group_choice
             .connect_selected_item_notify(move |choice| {
                 let group = unsafe { pokeapi::ResourceGroup::from_glib(choice.selected() as i32) };
-                tokoi_runtime().spawn(async move {
-                    _ = get_entries(group)
-                        .await
-                        .inspect(|it| {
-                            dbg!(it.group(), it.names());
-                        })
-                        .inspect_err(|e| tracing::error!(%e));
-                });
+                tokoi_runtime().spawn(clone!(@strong tx => async move {
+                    _ = tx.send(get_entries(group).await).await.inspect_err(|e| tracing::error!(%e));
+                }));
             });
+
+        let browse_list = imp
+            .browse_list
+            .downcast_ref::<gtk::ListView>()
+            .expect("Value has to be a ListView");
+        glib::spawn_future_local(clone!(@strong rx, @weak browse_list => async move {
+            while let Ok(it) = rx.recv().await {
+                if let Ok(it) = it {
+                    // dbg!(&it);
+                    let objs = it.into_iter().map(|it| NamedPokeResourceObject::new(it)).collect::<Vec<_>>();
+                    let browse_model = gio::ListStore::new::<NamedPokeResourceObject>();
+                    browse_model.extend_from_slice(&objs);
+
+                    let factory = SignalListItemFactory::new();
+                    factory.connect_setup(move |_, list_item| {
+                        let label = Label::new(None);
+                        list_item
+                            .downcast_ref::<gtk::ListItem>()
+                            .expect("Value has to be a ListItem")
+                            .set_child(Some(&label));
+                    });
+                    factory.connect_bind(move |_, list_item| {
+                        let resource = list_item
+                            .downcast_ref::<gtk::ListItem>()
+                            .expect("Value has to be a ListItem")
+                            .item()
+                            .and_downcast::<NamedPokeResourceObject>()
+                            .expect("Value has to be a NamedPokeResourceObject");
+
+                        let label = list_item
+                            .downcast_ref::<gtk::ListItem>()
+                            .expect("Value has to be a ListItem")
+                            .child()
+                            .and_downcast::<Label>()
+                            .expect("Value has to be a Label");
+
+                        label.set_label(&resource.name());
+                    });
+
+                    let selection_model = SingleSelection::new(Some(browse_model));
+                    browse_list.set_model(Some(&selection_model));
+                    browse_list.set_factory(Some(&factory));
+                }
+            }
+        }));
     }
 }
