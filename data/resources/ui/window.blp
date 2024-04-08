@@ -56,19 +56,28 @@ template $ExampleApplicationWindow: Adw.ApplicationWindow {
           margin-start: 12;
           margin-end: 12;
 
+          styles [
+            "linked"
+          ]
+
           DropDown group_choice {
             // model: Adw.EnumListModel {};
           }
 
           SearchEntry items_search_entry {}
-
-          styles [
-            "linked"
-          ]
         }
 
-        Adw.ViewStack sidebar_stack {
-          Adw.ViewStackPage sidebar_stack_browse_page {
+        Stack sidebar_stack {
+          StackPage sidebar_stack_empty_page {
+            child: Adw.StatusPage {
+              title: "No entries to show";
+              description: "Fetching entries for the group...";
+            };
+          }
+
+          StackPage sidebar_stack_browse_page {
+            name: "sidebar_stack_browse_page";
+
             child: ScrolledWindow {
               styles [
               ]
@@ -81,25 +90,13 @@ template $ExampleApplicationWindow: Adw.ApplicationWindow {
             };
           }
 
-          Adw.ViewStackPage sidebar_stack_spinner_page {
-            child: Box {
-              orientation: vertical;
-              halign: center;
-              valign: center;
-              margin-top: 12;
-              margin-bottom: 12;
-              margin-start: 12;
-              margin-end: 12;
+          StackPage sidebar_stack_error_page {
+            name: "sidebar_stack_error_page";
 
-              Spinner sidebar_items_loading_spinner {}
-            };
-          }
-
-          Adw.ViewStackPage sidebar_stack_status_page {
             child: Adw.StatusPage {
-              icon-name: "system-search-symbolic";
-              title: "No Results found";
-              description: "Try a different search";
+              icon-name: "dialog-warning-symbolic";
+              title: "Failed to fetch entries";
+              // description: "Fill this on the code side";
             };
           }
         }
@@ -115,6 +112,7 @@ template $ExampleApplicationWindow: Adw.ApplicationWindow {
           show-title: false;
         }
 
+        // NOTE: App crashes if changed to StackPage, investigate.
         Adw.ViewStack content_stack {
           Adw.ViewStackPage content_stack_status_page {
             child: Adw.StatusPage {

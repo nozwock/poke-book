@@ -1,6 +1,6 @@
 use adw::prelude::*;
 use adw::subclass::prelude::*;
-use gtk::builders::SingleSelectionBuilder;
+use fuzzy_matcher::FuzzyMatcher;
 use gtk::glib::clone;
 use gtk::glib::translate::FromGlib;
 use gtk::{
@@ -8,7 +8,7 @@ use gtk::{
 };
 use poke_book::pokeapi::rustemon_client;
 use poke_book::resource_object::NamedPokeResourceObject;
-use poke_book::{pokeapi, tokoi_runtime};
+use poke_book::{pokeapi, skim_matcher, tokoi_runtime};
 
 use crate::application::ExampleApplication;
 use crate::config::{APP_ID, PROFILE};
@@ -27,8 +27,12 @@ mod imp {
         pub items_search_entry: TemplateChild<gtk::SearchEntry>,
         #[template_child]
         pub browse_list: TemplateChild<gtk::ListView>,
+
         #[template_child]
         pub sidebar_split: TemplateChild<adw::NavigationSplitView>,
+        #[template_child]
+        pub sidebar_stack: TemplateChild<gtk::Stack>,
+
         pub settings: gio::Settings,
     }
 
@@ -40,6 +44,7 @@ mod imp {
                 items_search_entry: Default::default(),
                 browse_list: Default::default(),
                 sidebar_split: Default::default(),
+                sidebar_stack: Default::default(),
             }
         }
     }
@@ -182,10 +187,10 @@ impl ExampleApplicationWindow {
 
         let (tx, rx) = async_channel::unbounded::<anyhow::Result<Vec<String>>>();
 
-        let sidebar_split = imp
-            .sidebar_split
-            .downcast_ref::<adw::NavigationSplitView>()
-            .unwrap();
+        // let sidebar_split = imp
+        //     .sidebar_split
+        //     .downcast_ref::<adw::NavigationSplitView>()
+        //     .unwrap();
         imp.group_choice
             .connect_selected_item_notify(move |choice| {
                 let group = unsafe { pokeapi::ResourceGroup::from_glib(choice.selected() as i32) };
@@ -199,50 +204,86 @@ impl ExampleApplicationWindow {
             .browse_list
             .downcast_ref::<gtk::ListView>()
             .expect("Value has to be a ListView");
-        glib::spawn_future_local(clone!(@strong rx, @weak browse_list => async move {
-            while let Ok(it) = rx.recv().await {
-                if let Ok(it) = it {
-                    // dbg!(&it);
-                    let objs = it.into_iter().map(|it| NamedPokeResourceObject::new(it)).collect::<Vec<_>>();
-                    let browse_model = gio::ListStore::new::<NamedPokeResourceObject>();
-                    browse_model.extend_from_slice(&objs);
+        let items_search_entry = imp
+            .items_search_entry
+            .downcast_ref::<gtk::SearchEntry>()
+            .expect("Value has to be a SearchEntry");
+        let sidebar_stack = imp.sidebar_stack.downcast_ref::<gtk::Stack>().unwrap();
 
-                    let factory = SignalListItemFactory::new();
-                    factory.connect_setup(move |_, list_item| {
-                        let label = Label::builder().xalign(0.).build();
-                        list_item
-                            .downcast_ref::<gtk::ListItem>()
-                            .expect("Value has to be a ListItem")
-                            .set_child(Some(&label));
-                    });
-                    factory.connect_bind(move |_, list_item| {
-                        let resource = list_item
-                            .downcast_ref::<gtk::ListItem>()
-                            .expect("Value has to be a ListItem")
-                            .item()
-                            .and_downcast::<NamedPokeResourceObject>()
-                            .expect("Value has to be a NamedPokeResourceObject");
+        // Setting up ListView, Filters and stuff
+        glib::spawn_future_local(
+            clone!(@strong rx, @weak browse_list, @weak items_search_entry, @weak sidebar_stack => async move {
+                while let Ok(it) = rx.recv().await {
+                    if let Ok(it) = it {
+                        let objs = it.into_iter().map(|it| NamedPokeResourceObject::new(it)).collect::<Vec<_>>();
+                        let browse_model = gio::ListStore::new::<NamedPokeResourceObject>();
+                        browse_model.extend_from_slice(&objs);
 
-                        let label = list_item
-                            .downcast_ref::<gtk::ListItem>()
-                            .expect("Value has to be a ListItem")
-                            .child()
-                            .and_downcast::<Label>()
-                            .expect("Value has to be a Label");
+                        let factory = SignalListItemFactory::new();
+                        factory.connect_setup(move |_, list_item| {
+                            let label = Label::builder().xalign(0.).build();
+                            list_item
+                                .downcast_ref::<gtk::ListItem>()
+                                .expect("Value has to be a ListItem")
+                                .set_child(Some(&label));
+                        });
+                        factory.connect_bind(move |_, list_item| {
+                            let resource = list_item
+                                .downcast_ref::<gtk::ListItem>()
+                                .expect("Value has to be a ListItem")
+                                .item()
+                                .and_downcast::<NamedPokeResourceObject>()
+                                .expect("Value has to be a NamedPokeResourceObject");
+
+                            let label = list_item
+                                .downcast_ref::<gtk::ListItem>()
+                                .expect("Value has to be a ListItem")
+                                .child()
+                                .and_downcast::<Label>()
+                                .expect("Value has to be a Label");
 
 
-                        let name = heck::AsTitleCase(resource.name()).to_string();
-                        label.set_label(&name);
-                    });
+                            let name = heck::AsTitleCase(resource.name()).to_string();
+                            label.set_label(&name);
+                        });
 
-                    let selection_model = SingleSelection::new(None::<gio::ListStore>);
-                    selection_model.set_autoselect(false);
-                    selection_model.set_model(Some(&browse_model));
+                        let fuzzy_filter = gtk::CustomFilter::new(clone!(@weak items_search_entry => @default-return true, move |resource| {
+                            let resource = resource
+                                .downcast_ref::<NamedPokeResourceObject>()
+                                .expect("Value has to be a NamedPokeResourceObject");
 
-                    browse_list.set_model(Some(&selection_model));
-                    browse_list.set_factory(Some(&factory));
+                            match items_search_entry.text().as_str().trim() {
+                                "" => true,
+                                s => {
+                                    skim_matcher().fuzzy_match(&resource.name(), s).is_some()
+                                }
+                            }
+                        }));
+
+                        items_search_entry.connect_changed(clone!(@weak fuzzy_filter => move |_| {
+                            fuzzy_filter.changed(gtk::FilterChange::Different);
+                        }));
+
+                        let filter_model = gtk::FilterListModel::new(Some(browse_model), Some(fuzzy_filter));
+
+                        let selection_model = SingleSelection::new(None::<gtk::FilterListModel>);
+                        selection_model.set_autoselect(false);
+                        selection_model.set_model(Some(&filter_model));
+
+                        selection_model.connect_selected_item_notify(move |model| {
+                            if let Some(it) = model.selected_item() {
+                                dbg!(it.downcast_ref::<NamedPokeResourceObject>().unwrap().name());
+                            }
+                            // TODO: fetch resource and show it in its custom page
+                        });
+
+                        browse_list.set_model(Some(&selection_model));
+                        browse_list.set_factory(Some(&factory));
+
+                        sidebar_stack.set_visible_child_name("sidebar_stack_browse_page");
+                    }
                 }
-            }
-        }));
+            }),
+        );
     }
 }
