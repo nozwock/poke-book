@@ -1,3 +1,6 @@
+use crate::models::poke_resource::NamedPokeResourceObject;
+use crate::pokeapi::rustemon_client;
+use crate::{pokeapi, skim_matcher, tokoi_runtime};
 use adw::prelude::*;
 use adw::subclass::prelude::*;
 use fuzzy_matcher::FuzzyMatcher;
@@ -6,9 +9,6 @@ use gtk::glib::translate::FromGlib;
 use gtk::{
     gio, glib, Expression, Label, PropertyExpression, SignalListItemFactory, SingleSelection,
 };
-use poke_book::pokeapi::rustemon_client;
-use poke_book::resource_object::NamedPokeResourceObject;
-use poke_book::{pokeapi, skim_matcher, tokoi_runtime};
 
 use crate::application::ExampleApplication;
 use crate::config::{APP_ID, PROFILE};
@@ -141,6 +141,16 @@ impl ExampleApplicationWindow {
     fn setup_ui(&self) {
         let imp = self.imp();
 
+        let browse_list = imp
+            .browse_list
+            .downcast_ref::<gtk::ListView>()
+            .expect("Value has to be a ListView");
+        let items_search_entry = imp
+            .items_search_entry
+            .downcast_ref::<gtk::SearchEntry>()
+            .expect("Value has to be a SearchEntry");
+        let sidebar_stack = imp.sidebar_stack.downcast_ref::<gtk::Stack>().unwrap();
+
         let group_model = adw::EnumListModel::new(pokeapi::ResourceGroup::static_type());
         imp.group_choice.set_model(Some(&group_model));
         imp.group_choice
@@ -187,28 +197,16 @@ impl ExampleApplicationWindow {
 
         let (tx, rx) = async_channel::unbounded::<anyhow::Result<Vec<String>>>();
 
-        // let sidebar_split = imp
-        //     .sidebar_split
-        //     .downcast_ref::<adw::NavigationSplitView>()
-        //     .unwrap();
         imp.group_choice
-            .connect_selected_item_notify(move |choice| {
+            .connect_selected_item_notify(clone!(@weak sidebar_stack => move |choice| {
+                // TODO: Show the loading page after figuring out how to defer it by 200-400ms?
+                // sidebar_stack.set_visible_child_name("sidebar_stack_empty_page");
                 let group = unsafe { pokeapi::ResourceGroup::from_glib(choice.selected() as i32) };
                 tokoi_runtime().spawn(clone!(@strong tx => async move {
                     _ = tx.send(get_all_entries(group).await).await.inspect_err(|e| tracing::error!(%e));
                 }));
-            });
+            }));
         imp.group_choice.notify("selected-item");
-
-        let browse_list = imp
-            .browse_list
-            .downcast_ref::<gtk::ListView>()
-            .expect("Value has to be a ListView");
-        let items_search_entry = imp
-            .items_search_entry
-            .downcast_ref::<gtk::SearchEntry>()
-            .expect("Value has to be a SearchEntry");
-        let sidebar_stack = imp.sidebar_stack.downcast_ref::<gtk::Stack>().unwrap();
 
         // Setting up ListView, Filters and stuff
         glib::spawn_future_local(

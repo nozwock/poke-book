@@ -5,8 +5,8 @@ use adw::prelude::*;
 use adw::subclass::prelude::*;
 use gtk::{gdk, gio, glib};
 
-use crate::config::{self, APP_ID, PKGDATADIR, PROFILE, VERSION};
-use crate::window::ExampleApplicationWindow;
+use crate::config::{APP_ID, PKGDATADIR, PROFILE, VERSION};
+use crate::widgets::window::ExampleApplicationWindow;
 
 mod imp {
     use super::*;

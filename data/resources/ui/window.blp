@@ -69,8 +69,10 @@ template $ExampleApplicationWindow: Adw.ApplicationWindow {
 
         Stack sidebar_stack {
           StackPage sidebar_stack_empty_page {
+            name: "sidebar_stack_empty_page";
+
             child: Adw.StatusPage {
-              title: "No entries to show";
+              title: "No Entries to Show";
               description: "Fetching entries for the group...";
             };
           }
@@ -113,17 +115,17 @@ template $ExampleApplicationWindow: Adw.ApplicationWindow {
           show-title: false;
         }
 
-        // NOTE: App crashes if changed to StackPage, investigate.
-        Adw.ViewStack content_stack {
-          Adw.ViewStackPage content_stack_status_page {
+        Stack content_stack {
+          // Seems like StackPage must've a child
+          StackPage content_stack_status_page {
             child: Adw.StatusPage {
               icon-name: "view-paged-symbolic";
-              title: "No Item Selected";
-              description: "Select an item to view its content";
+              title: "No Entry Selected";
+              description: "Select an entry to view its content";
             };
           }
 
-          Adw.ViewStackPage content_stack_content_page {}
+          // $PokemonPage {}
         }
       }
     };

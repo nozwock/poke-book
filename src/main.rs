@@ -1,7 +1,13 @@
 mod application;
 #[rustfmt::skip]
-mod config;
-mod window;
+pub mod config;
+pub mod models;
+pub mod pokeapi;
+pub mod widgets;
+
+use fuzzy_matcher::skim::SkimMatcherV2;
+use std::sync::OnceLock;
+use tokio::runtime::Runtime;
 
 use gettextrs::{gettext, LocaleCategory};
 use gtk::{gio, glib};
@@ -25,4 +31,14 @@ fn main() -> glib::ExitCode {
 
     let app = ExampleApplication::default();
     app.run()
+}
+
+pub fn tokoi_runtime() -> &'static Runtime {
+    static RUNTIME: OnceLock<Runtime> = OnceLock::new();
+    RUNTIME.get_or_init(|| Runtime::new().unwrap())
+}
+
+pub fn skim_matcher() -> &'static SkimMatcherV2 {
+    static RUNTIME: OnceLock<SkimMatcherV2> = OnceLock::new();
+    RUNTIME.get_or_init(|| SkimMatcherV2::default())
 }

@@ -2,8 +2,6 @@ use adw::prelude::*;
 use adw::subclass::prelude::*;
 use gtk::glib;
 
-use crate::pokeapi::ResourceGroup;
-
 mod imp {
     use std::cell::RefCell;
 
