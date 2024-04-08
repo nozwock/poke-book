@@ -141,17 +141,17 @@ impl ExampleApplicationWindow {
                 "name",
             )));
 
-        // TODO: Bind DropDown label to SearchEntry's
-        // .bind_property(
-        //     "name",
-        //     imp.items_search_entry
-        //         .downcast_ref::<gtk::SearchEntry>()
-        //         .expect("The value is of type gtk::SearchEntry"),
-        //     "placeholder-text",
-        // )
-        // .transform_to(|_, s: String| Some(format!("Search in {s}")))
-        // .sync_create()
-        // .build();
+        imp.group_choice
+            .bind_property(
+                "selected-item",
+                imp.items_search_entry
+                    .downcast_ref::<gtk::SearchEntry>()
+                    .expect("The value is of type gtk::SearchEntry"),
+                "placeholder-text",
+            )
+            .transform_to(|_, s: adw::EnumListItem| Some(format!("Search in {}", s.name())))
+            .sync_create()
+            .build();
 
         async fn get_all_entries(group: pokeapi::ResourceGroup) -> anyhow::Result<Vec<String>> {
             macro_rules! get_all_entries {
