@@ -1,6 +1,10 @@
 use adw::prelude::*;
 use adw::subclass::prelude::*;
-use gtk::{gio, glib};
+use gtk::glib::translate::FromGlib;
+use gtk::{gio, glib, Expression, PropertyExpression};
+use poke_book::pokeapi::rustemon_client;
+use poke_book::resource_object::ResourceObject;
+use poke_book::{pokeapi, tokoi_runtime};
 
 use crate::application::ExampleApplication;
 use crate::config::{APP_ID, PROFILE};
@@ -13,6 +17,10 @@ mod imp {
     pub struct ExampleApplicationWindow {
         // #[template_child]
         // pub headerbar: TemplateChild<adw::HeaderBar>,
+        #[template_child]
+        pub group_choice: TemplateChild<gtk::DropDown>,
+        #[template_child]
+        pub items_search_entry: TemplateChild<gtk::SearchEntry>,
         pub settings: gio::Settings,
     }
 
@@ -21,6 +29,8 @@ mod imp {
             Self {
                 // headerbar: TemplateChild::default(),
                 settings: gio::Settings::new(APP_ID),
+                group_choice: Default::default(),
+                items_search_entry: Default::default(),
             }
         }
     }
@@ -53,6 +63,7 @@ mod imp {
 
             // Load latest window state
             obj.load_window_size();
+            obj.setup_widgets();
         }
     }
 
@@ -60,9 +71,10 @@ mod imp {
     impl WindowImpl for ExampleApplicationWindow {
         // Save window state on delete event
         fn close_request(&self) -> glib::Propagation {
-            if let Err(err) = self.obj().save_window_size() {
-                tracing::warn!("Failed to save window state, {}", &err);
-            }
+            _ = self
+                .obj()
+                .save_window_size()
+                .inspect_err(|e| tracing::warn!(%e, "Failed to save window state"));
 
             // Pass close request on to the parent
             self.parent_close_request()
@@ -110,5 +122,65 @@ impl ExampleApplicationWindow {
         if is_maximized {
             self.maximize();
         }
+    }
+
+    fn setup_widgets(&self) {
+        let imp = self.imp();
+
+        let categories_model = adw::EnumListModel::new(pokeapi::ResourceGroup::static_type());
+        imp.group_choice.set_model(Some(&categories_model));
+        imp.group_choice
+            .set_expression(Some(PropertyExpression::new(
+                categories_model.item_type(),
+                None::<Expression>,
+                "name",
+            )));
+
+        // TODO: Bind DropDown label to SearchEntry's
+        // .bind_property(
+        //     "name",
+        //     imp.items_search_entry
+        //         .downcast_ref::<gtk::SearchEntry>()
+        //         .expect("The value is of type gtk::SearchEntry"),
+        //     "placeholder-text",
+        // )
+        // .transform_to(|_, s: String| Some(format!("Search in {s}")))
+        // .sync_create()
+        // .build();
+
+        async fn get_entries(group: pokeapi::ResourceGroup) -> anyhow::Result<ResourceObject> {
+            // TODO: Time to macro?
+            Ok(match group {
+                pokeapi::ResourceGroup::Pokemon => ResourceObject::new(
+                    group,
+                    rustemon::pokemon::pokemon::get_all_entries(rustemon_client())
+                        .await?
+                        .into_iter()
+                        .map(|it| it.name)
+                        .collect(),
+                ),
+                pokeapi::ResourceGroup::Moves => ResourceObject::new(
+                    group,
+                    rustemon::moves::move_::get_all_entries(rustemon_client())
+                        .await?
+                        .into_iter()
+                        .map(|it| it.name)
+                        .collect(),
+                ),
+            })
+        }
+
+        imp.group_choice
+            .connect_selected_item_notify(move |choice| {
+                let group = unsafe { pokeapi::ResourceGroup::from_glib(choice.selected() as i32) };
+                tokoi_runtime().spawn(async move {
+                    _ = get_entries(group)
+                        .await
+                        .inspect(|it| {
+                            dbg!(it.group(), it.names());
+                        })
+                        .inspect_err(|e| tracing::error!(%e));
+                });
+            });
     }
 }

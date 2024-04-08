@@ -28,14 +28,14 @@ template $ExampleApplicationWindow: Adw.ApplicationWindow {
     condition ("max-width: 720")
 
     setters {
-      nav_split.collapsed: true;
+      sidebar.collapsed: true;
     }
   }
 
-  content: Adw.NavigationSplitView nav_split {
-    sidebar: Adw.NavigationPage browse_page {
-      width-request: 360;
+  content: Adw.NavigationSplitView sidebar {
+    sidebar: Adw.NavigationPage sidebar_page {
       title: "PokeBook";
+      width-request: 360;
 
       Adw.ToolbarView {
         [top]
@@ -51,8 +51,12 @@ template $ExampleApplicationWindow: Adw.ApplicationWindow {
         [top]
         Box {
           orientation: vertical;
+          margin-top: 12;
+          margin-bottom: 12;
+          margin-start: 12;
+          margin-end: 12;
 
-          DropDown {
+          DropDown group_choice {
             // model: Adw.EnumListModel {};
           }
 
@@ -61,13 +65,44 @@ template $ExampleApplicationWindow: Adw.ApplicationWindow {
           }
 
           styles [
-            "toolbar"
+            "linked"
           ]
         }
 
-        Adw.StatusPage {
-          title: "Items";
-          description: "Dynamically populated";
+        Adw.ViewStack sidebar_stack {
+          Adw.ViewStackPage sidebar_stack_browse_page {
+            child: Box {
+              orientation: vertical;
+              margin-top: 12;
+              margin-bottom: 12;
+              margin-start: 12;
+              margin-end: 12;
+
+              ListView browse_list {}
+            };
+          }
+
+          Adw.ViewStackPage sidebar_stack_spinner_page {
+            child: Box {
+              orientation: vertical;
+              halign: center;
+              valign: center;
+              margin-top: 12;
+              margin-bottom: 12;
+              margin-start: 12;
+              margin-end: 12;
+
+              Spinner sidebar_items_loading_spinner {}
+            };
+          }
+
+          Adw.ViewStackPage sidebar_stack_status_page {
+            child: Adw.StatusPage {
+              icon-name: "system-search-symbolic";
+              title: "No Results found";
+              description: "Try a different search";
+            };
+          }
         }
       }
     };
@@ -77,10 +112,20 @@ template $ExampleApplicationWindow: Adw.ApplicationWindow {
 
       Adw.ToolbarView {
         [top]
-        Adw.HeaderBar {}
+        Adw.HeaderBar {
+          show-title: false;
+        }
 
-        Adw.StatusPage {
-          title: "Content";
+        Adw.ViewStack content_stack {
+          Adw.ViewStackPage content_stack_status_page {
+            child: Adw.StatusPage {
+              icon-name: "view-paged-symbolic";
+              title: "No Item Selected";
+              description: "Select an item to view its content";
+            };
+          }
+
+          Adw.ViewStackPage content_stack_content_page {}
         }
       }
     };
