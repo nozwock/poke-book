@@ -153,22 +153,24 @@ impl ExampleApplicationWindow {
         // .sync_create()
         // .build();
 
-        async fn get_entries(group: pokeapi::ResourceGroup) -> anyhow::Result<Vec<String>> {
-            // TODO: Time to macro?
+        async fn get_all_entries(group: pokeapi::ResourceGroup) -> anyhow::Result<Vec<String>> {
+            macro_rules! get_all_entries {
+                ($endpoint:path) => {{
+                    use $endpoint as path;
+                    path::get_all_entries(rustemon_client())
+                        .await?
+                        .into_iter()
+                        .map(|it| it.name)
+                        .collect()
+                }};
+            }
+
             Ok(match group {
                 pokeapi::ResourceGroup::Pokemon => {
-                    rustemon::pokemon::pokemon::get_all_entries(rustemon_client())
-                        .await?
-                        .into_iter()
-                        .map(|it| it.name)
-                        .collect()
+                    get_all_entries!(rustemon::pokemon::pokemon)
                 }
                 pokeapi::ResourceGroup::Moves => {
-                    rustemon::moves::move_::get_all_entries(rustemon_client())
-                        .await?
-                        .into_iter()
-                        .map(|it| it.name)
-                        .collect()
+                    get_all_entries!(rustemon::moves::move_)
                 }
             })
         }
@@ -179,7 +181,7 @@ impl ExampleApplicationWindow {
             .connect_selected_item_notify(move |choice| {
                 let group = unsafe { pokeapi::ResourceGroup::from_glib(choice.selected() as i32) };
                 tokoi_runtime().spawn(clone!(@strong tx => async move {
-                    _ = tx.send(get_entries(group).await).await.inspect_err(|e| tracing::error!(%e));
+                    _ = tx.send(get_all_entries(group).await).await.inspect_err(|e| tracing::error!(%e));
                 }));
             });
         imp.group_choice.notify("selected-item");
