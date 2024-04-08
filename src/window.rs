@@ -198,7 +198,7 @@ impl ExampleApplicationWindow {
 
                     let factory = SignalListItemFactory::new();
                     factory.connect_setup(move |_, list_item| {
-                        let label = Label::builder().css_classes(["osd", "pad-8"]).build();
+                        let label = Label::builder().build();
                         list_item
                             .downcast_ref::<gtk::ListItem>()
                             .expect("Value has to be a ListItem")
@@ -219,7 +219,9 @@ impl ExampleApplicationWindow {
                             .and_downcast::<Label>()
                             .expect("Value has to be a Label");
 
-                        label.set_label(&resource.name());
+
+                        let name = heck::AsTitleCase(resource.name()).to_string();
+                        label.set_label(&name);
                     });
 
                     let selection_model = SingleSelection::new(Some(browse_model));

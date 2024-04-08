@@ -1353,6 +1353,7 @@ dependencies = [
  "async-channel",
  "gettext-rs",
  "gtk4",
+ "heck",
  "libadwaita",
  "rustemon",
  "tokio",

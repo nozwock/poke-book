@@ -85,7 +85,11 @@ template $ExampleApplicationWindow: Adw.ApplicationWindow {
                 styles [
                 ]
 
-                ListView browse_list {}
+                ListView browse_list {
+                  styles [
+                    "navigation-sidebar",
+                  ]
+                }
               }
             };
           }
