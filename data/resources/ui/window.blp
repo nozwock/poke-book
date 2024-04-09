@@ -69,7 +69,7 @@ template $ExampleApplicationWindow: Adw.ApplicationWindow {
 
         Stack sidebar_stack {
           StackPage sidebar_stack_empty_page {
-            name: "sidebar_stack_empty_page";
+            name: "loading_page";
 
             child: Adw.StatusPage {
               title: "No Entries to Show";
@@ -78,7 +78,7 @@ template $ExampleApplicationWindow: Adw.ApplicationWindow {
           }
 
           StackPage sidebar_stack_browse_page {
-            name: "sidebar_stack_browse_page";
+            name: "browse_page";
 
             child: ScrolledWindow {
               styles [
@@ -93,7 +93,7 @@ template $ExampleApplicationWindow: Adw.ApplicationWindow {
           }
 
           StackPage sidebar_stack_error_page {
-            name: "sidebar_stack_error_page";
+            name: "error_page";
 
             child: Adw.StatusPage {
               icon-name: "dialog-warning-symbolic";
@@ -116,12 +116,31 @@ template $ExampleApplicationWindow: Adw.ApplicationWindow {
         }
 
         Stack content_stack {
-          // Seems like StackPage must've a child
           StackPage content_stack_status_page {
+            name: "default_page";
+
             child: Adw.StatusPage {
               icon-name: "view-paged-symbolic";
               title: "No Entry Selected";
               description: "Select an entry to view its content";
+            };
+          }
+
+          StackPage content_stack_loading_page {
+            name: "loading_page";
+
+            child: Box {
+              halign: center;
+              valign: center;
+
+              Spinner {
+                spinning: true;
+                width-request: 128;
+
+                styles [
+                  "large-spinner"
+                ]
+              }
             };
           }
 

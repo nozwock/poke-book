@@ -1,5 +1,3 @@
-use std::io::Read;
-
 use crate::models::poke_resource::NamedPokeResourceObject;
 use crate::pokeapi::rustemon_client;
 use crate::widgets::pokemon::PokemonPageContent;
@@ -8,7 +6,6 @@ use adw::prelude::*;
 use adw::subclass::prelude::*;
 use fuzzy_matcher::FuzzyMatcher;
 use gtk::glib::clone;
-use gtk::glib::translate::FromGlib;
 use gtk::{
     gdk, gio, glib, Expression, Label, PropertyExpression, SignalListItemFactory, SingleSelection,
 };
@@ -219,13 +216,14 @@ impl ExampleApplicationWindow {
         let (tx, rx) = async_channel::unbounded::<anyhow::Result<Vec<String>>>();
 
         // make it "generic" later with enum variants
-        let (content_tx, content_rx) = async_channel::unbounded::<gdk::Texture>();
+        let (content_tx, content_rx) = async_channel::unbounded::<anyhow::Result<ContentMessage>>();
 
         group_choice
             .connect_selected_item_notify(clone!(@weak sidebar_stack => move |choice| {
                 // TODO: Show the loading page after figuring out how to defer it by 200-400ms?
-                // sidebar_stack.set_visible_child_name("sidebar_stack_empty_page");
+                // sidebar_stack.set_visible_child_name("loading_page");
                 let group = pokeapi::ResourceGroup::from(choice.selected());
+                tracing::debug!(?group, "Entered group change handler");
                 tokoi_runtime().spawn(clone!(@strong tx => async move {
                     _ = tx.send(get_all_entries(group).await).await.inspect_err(|e| tracing::error!(%e));
                 }));
@@ -264,7 +262,6 @@ impl ExampleApplicationWindow {
                                 .and_downcast::<Label>()
                                 .expect("Value has to be a Label");
 
-
                             let name = heck::AsTitleCase(resource.name()).to_string();
                             label.set_label(&name);
                         });
@@ -293,50 +290,73 @@ impl ExampleApplicationWindow {
                         selection_model.set_model(Some(&filter_model));
 
                         selection_model.connect_selected_item_notify(clone!(@strong content_tx, @weak content_stack, @weak group_choice, @weak pokemon_content_imp => move |model| {
-                            // Show content
-                            pokemon_content_imp.pokemon_image.set_icon_name(Some("image-missing-symbolic"));
+                            content_stack.set_visible_child_name("loading_page");
+
+                            // pokemon_content_imp.main_sprite.set_icon_name(Some("image-missing-symbolic"));
+
                             if let Some(it) = model.selected_item() {
-                                let resource_name = dbg!(it.downcast_ref::<NamedPokeResourceObject>().unwrap().name());
+                                let resource_name = it.downcast_ref::<NamedPokeResourceObject>().unwrap().name();
+                                tracing::debug!(?resource_name, "Selected an item");
 
                                 match pokeapi::ResourceGroup::from(group_choice.selected()) {
                                     pokeapi::ResourceGroup::Pokemon => {
                                         tokoi_runtime().spawn(clone!(@strong content_tx => async move {
-                                            if let Ok(it) = rustemon::pokemon::pokemon::get_by_name(&resource_name, rustemon_client()).await {
-                                                if let Some(it) = it.sprites.other.official_artwork.front_default {
-                                                    let bytes = glib::Bytes::from_owned(reqwest::get(it).await.unwrap().bytes().await.unwrap());
-                                                    let texture = gtk::gdk::Texture::from_bytes(&bytes).unwrap();
-                                                    content_tx.send(texture).await;
-                                                };
+                                            match rustemon::pokemon::pokemon::get_by_name(&resource_name, rustemon_client()).await {
+                                                Ok(pokemon_model) => {
+                                                    if let Some(ref it) = pokemon_model.sprites.other.official_artwork.front_default {
+                                                        let bytes = glib::Bytes::from_owned(reqwest::get(it).await.unwrap().bytes().await.unwrap());
+                                                        let texture = gtk::gdk::Texture::from_bytes(&bytes).unwrap();
+                                                        _ = content_tx.send(Ok(ContentMessage::Pokemon((pokemon_model, texture)))).await;
+                                                    };
+                                                }
+                                                Err(err) => {
+                                                    // No idea why this fails? `err.map_err(anyhow::Error::new);`
+                                                    _ = content_tx.send(Err(anyhow::anyhow!(err))).await;
+                                                }
                                             };
                                         }));
                                     }
                                     _ => {}
                                 };
-
-                                content_stack.set_visible_child_name("pokemon_page");
                             }
-
                             // TODO: fetch resource and show it in its custom page
                         }));
 
                         browse_list.set_model(Some(&selection_model));
                         browse_list.set_factory(Some(&factory));
 
-                        sidebar_stack.set_visible_child_name("sidebar_stack_browse_page");
+                        sidebar_stack.set_visible_child_name("browse_page");
                     } else {
-                        sidebar_stack.set_visible_child_name("sidebar_stack_error_page");
+                        sidebar_stack.set_visible_child_name("error_page");
                     }
                 }
             }),
         );
 
+        // Still not OK!
+        // When multiple items are selected, only the latest one should be reflected on the page
         glib::spawn_future_local(
-            clone!(@strong content_rx, @weak pokemon_content_imp => async move {
+            clone!(@strong content_rx, @weak pokemon_content_imp, @weak content_stack => async move {
                 while let Ok(it) = content_rx.recv().await {
-                    let pokemon_image = pokemon_content_imp.pokemon_image.downcast_ref::<gtk::Image>().unwrap();
-                    pokemon_image.set_paintable(Some(&it));
+                    match it {
+                        Ok(msg) => match msg {
+                            ContentMessage::Pokemon((model, texture)) => {
+                                // Could also send model and texture in different message, that'd allow to load model first
+                                // as fetching the sprite will probably take longer than that
+                                pokemon_content_imp.name.set_label(&heck::AsTitleCase(model.name).to_string());
+                                pokemon_content_imp.main_sprite.set_paintable(Some(&texture));
+
+                                content_stack.set_visible_child_name("pokemon_page");
+                            }
+                        }
+                        Err(_err) => {}
+                    }
                 }
             }),
         );
     }
+}
+
+pub enum ContentMessage {
+    Pokemon((rustemon::model::pokemon::Pokemon, gdk::Texture)),
 }

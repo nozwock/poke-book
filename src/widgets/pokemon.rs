@@ -11,7 +11,9 @@ mod imp {
     #[template(resource = "/com/github/nozwock/PokeBook/ui/content-pages/pokemon.ui")]
     pub struct PokemonPageContent {
         #[template_child]
-        pub pokemon_image: TemplateChild<gtk::Image>,
+        pub main_sprite: TemplateChild<gtk::Image>,
+        #[template_child]
+        pub name: TemplateChild<gtk::Label>,
     }
 
     #[glib::object_subclass]

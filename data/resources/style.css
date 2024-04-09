@@ -1,8 +1,4 @@
-.title-header {
-  font-size: 36px;
-  font-weight: bold;
-}
-
-.pad-8 {
-  padding: 8px;
+.large-spinner {
+  min-width: 32px;
+  min-height: 32px;
 }
