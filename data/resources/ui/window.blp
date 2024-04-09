@@ -125,7 +125,11 @@ template $ExampleApplicationWindow: Adw.ApplicationWindow {
             };
           }
 
-          // $PokemonPage {}
+          StackPage {
+            name: "pokemon_page";
+
+            child: $PokemonPageContent pokemon_content {};
+          }
         }
       }
     };

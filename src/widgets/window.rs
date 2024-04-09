@@ -1,5 +1,8 @@
+use std::io::Read;
+
 use crate::models::poke_resource::NamedPokeResourceObject;
 use crate::pokeapi::rustemon_client;
+use crate::widgets::pokemon::PokemonPageContent;
 use crate::{pokeapi, skim_matcher, tokoi_runtime};
 use adw::prelude::*;
 use adw::subclass::prelude::*;
@@ -7,13 +10,15 @@ use fuzzy_matcher::FuzzyMatcher;
 use gtk::glib::clone;
 use gtk::glib::translate::FromGlib;
 use gtk::{
-    gio, glib, Expression, Label, PropertyExpression, SignalListItemFactory, SingleSelection,
+    gdk, gio, glib, Expression, Label, PropertyExpression, SignalListItemFactory, SingleSelection,
 };
 
 use crate::application::ExampleApplication;
 use crate::config::{APP_ID, PROFILE};
 
 mod imp {
+    use crate::widgets::pokemon::PokemonPageContent;
+
     use super::*;
 
     #[derive(Debug, gtk::CompositeTemplate)]
@@ -32,6 +37,10 @@ mod imp {
         pub sidebar_split: TemplateChild<adw::NavigationSplitView>,
         #[template_child]
         pub sidebar_stack: TemplateChild<gtk::Stack>,
+        #[template_child]
+        pub content_stack: TemplateChild<gtk::Stack>,
+        #[template_child]
+        pub pokemon_content: TemplateChild<PokemonPageContent>,
 
         pub settings: gio::Settings,
     }
@@ -45,6 +54,8 @@ mod imp {
                 browse_list: Default::default(),
                 sidebar_split: Default::default(),
                 sidebar_stack: Default::default(),
+                content_stack: Default::default(),
+                pokemon_content: Default::default(),
             }
         }
     }
@@ -56,6 +67,8 @@ mod imp {
         type ParentType = adw::ApplicationWindow;
 
         fn class_init(klass: &mut Self::Class) {
+            PokemonPageContent::ensure_type();
+
             klass.bind_template();
         }
 
@@ -150,16 +163,23 @@ impl ExampleApplicationWindow {
             .downcast_ref::<gtk::SearchEntry>()
             .expect("Value has to be a SearchEntry");
         let sidebar_stack = imp.sidebar_stack.downcast_ref::<gtk::Stack>().unwrap();
+        let content_stack = imp.content_stack.downcast_ref::<gtk::Stack>().unwrap();
+        let group_choice = imp.group_choice.downcast_ref::<gtk::DropDown>().unwrap();
+
+        let pokemon_content = imp
+            .pokemon_content
+            .downcast_ref::<PokemonPageContent>()
+            .unwrap();
+        let pokemon_content_imp = pokemon_content.imp();
 
         let group_model = adw::EnumListModel::new(pokeapi::ResourceGroup::static_type());
-        imp.group_choice.set_model(Some(&group_model));
-        imp.group_choice
-            .set_expression(Some(PropertyExpression::new(
-                group_model.item_type(),
-                None::<Expression>,
-                "name",
-            )));
-        imp.group_choice
+        group_choice.set_model(Some(&group_model));
+        group_choice.set_expression(Some(PropertyExpression::new(
+            group_model.item_type(),
+            None::<Expression>,
+            "name",
+        )));
+        group_choice
             .bind_property(
                 "selected-item",
                 imp.items_search_entry
@@ -195,22 +215,26 @@ impl ExampleApplicationWindow {
             })
         }
 
+        // Sidebar
         let (tx, rx) = async_channel::unbounded::<anyhow::Result<Vec<String>>>();
 
-        imp.group_choice
+        // make it "generic" later with enum variants
+        let (content_tx, content_rx) = async_channel::unbounded::<gdk::Texture>();
+
+        group_choice
             .connect_selected_item_notify(clone!(@weak sidebar_stack => move |choice| {
                 // TODO: Show the loading page after figuring out how to defer it by 200-400ms?
                 // sidebar_stack.set_visible_child_name("sidebar_stack_empty_page");
-                let group = unsafe { pokeapi::ResourceGroup::from_glib(choice.selected() as i32) };
+                let group = pokeapi::ResourceGroup::from(choice.selected());
                 tokoi_runtime().spawn(clone!(@strong tx => async move {
                     _ = tx.send(get_all_entries(group).await).await.inspect_err(|e| tracing::error!(%e));
                 }));
             }));
-        imp.group_choice.notify("selected-item");
+        group_choice.notify("selected-item");
 
         // Setting up ListView, Filters and stuff
         glib::spawn_future_local(
-            clone!(@strong rx, @weak browse_list, @weak items_search_entry, @weak sidebar_stack => async move {
+            clone!(@strong rx, @strong content_tx, @weak browse_list, @weak items_search_entry, @weak sidebar_stack, @weak content_stack, @weak pokemon_content_imp, @weak group_choice => async move {
                 while let Ok(it) = rx.recv().await {
                     if let Ok(it) = it {
                         let objs = it.into_iter().map(|it| NamedPokeResourceObject::new(it)).collect::<Vec<_>>();
@@ -268,12 +292,32 @@ impl ExampleApplicationWindow {
                         selection_model.set_autoselect(false);
                         selection_model.set_model(Some(&filter_model));
 
-                        selection_model.connect_selected_item_notify(move |model| {
+                        selection_model.connect_selected_item_notify(clone!(@strong content_tx, @weak content_stack, @weak group_choice, @weak pokemon_content_imp => move |model| {
+                            // Show content
+                            pokemon_content_imp.pokemon_image.set_icon_name(Some("image-missing-symbolic"));
                             if let Some(it) = model.selected_item() {
-                                dbg!(it.downcast_ref::<NamedPokeResourceObject>().unwrap().name());
+                                let resource_name = dbg!(it.downcast_ref::<NamedPokeResourceObject>().unwrap().name());
+
+                                match pokeapi::ResourceGroup::from(group_choice.selected()) {
+                                    pokeapi::ResourceGroup::Pokemon => {
+                                        tokoi_runtime().spawn(clone!(@strong content_tx => async move {
+                                            if let Ok(it) = rustemon::pokemon::pokemon::get_by_name(&resource_name, rustemon_client()).await {
+                                                if let Some(it) = it.sprites.other.official_artwork.front_default {
+                                                    let bytes = glib::Bytes::from_owned(reqwest::get(it).await.unwrap().bytes().await.unwrap());
+                                                    let texture = gtk::gdk::Texture::from_bytes(&bytes).unwrap();
+                                                    content_tx.send(texture).await;
+                                                };
+                                            };
+                                        }));
+                                    }
+                                    _ => {}
+                                };
+
+                                content_stack.set_visible_child_name("pokemon_page");
                             }
+
                             // TODO: fetch resource and show it in its custom page
-                        });
+                        }));
 
                         browse_list.set_model(Some(&selection_model));
                         browse_list.set_factory(Some(&factory));
@@ -282,6 +326,15 @@ impl ExampleApplicationWindow {
                     } else {
                         sidebar_stack.set_visible_child_name("sidebar_stack_error_page");
                     }
+                }
+            }),
+        );
+
+        glib::spawn_future_local(
+            clone!(@strong content_rx, @weak pokemon_content_imp => async move {
+                while let Ok(it) = content_rx.recv().await {
+                    let pokemon_image = pokemon_content_imp.pokemon_image.downcast_ref::<gtk::Image>().unwrap();
+                    pokemon_image.set_paintable(Some(&it));
                 }
             }),
         );

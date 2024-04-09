@@ -1,0 +1,30 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $PokemonPageContent: Box {
+    orientation: vertical;
+
+    ScrolledWindow {
+        margin-top: 12;
+        margin-bottom: 12;
+        margin-start: 12;
+        margin-end: 12;
+        hexpand: true;
+        vexpand: true;
+
+        Box {
+            orientation: vertical;
+            halign: center;
+            valign: center;
+
+            Image pokemon_image {
+                icon-name: "image-missing-symbolic";
+                pixel-size: 192;
+            }
+
+            Adw.StatusPage {
+                title: "Ahem";
+            }
+        }
+    }
+}
