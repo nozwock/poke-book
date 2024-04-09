@@ -21,12 +21,10 @@ mod imp {
     #[derive(Debug, gtk::CompositeTemplate)]
     #[template(resource = "/com/github/nozwock/PokeBook/ui/window.ui")]
     pub struct ExampleApplicationWindow {
-        // #[template_child]
-        // pub headerbar: TemplateChild<adw::HeaderBar>,
         #[template_child]
         pub group_choice: TemplateChild<gtk::DropDown>,
         #[template_child]
-        pub items_search_entry: TemplateChild<gtk::SearchEntry>,
+        pub browse_entry: TemplateChild<gtk::SearchEntry>,
         #[template_child]
         pub browse_list: TemplateChild<gtk::ListView>,
 
@@ -36,6 +34,7 @@ mod imp {
         pub sidebar_stack: TemplateChild<gtk::Stack>,
         #[template_child]
         pub content_stack: TemplateChild<gtk::Stack>,
+
         #[template_child]
         pub pokemon_content: TemplateChild<PokemonPageContent>,
 
@@ -47,7 +46,7 @@ mod imp {
             Self {
                 settings: gio::Settings::new(APP_ID),
                 group_choice: Default::default(),
-                items_search_entry: Default::default(),
+                browse_entry: Default::default(),
                 browse_list: Default::default(),
                 sidebar_split: Default::default(),
                 sidebar_stack: Default::default(),
@@ -156,7 +155,7 @@ impl ExampleApplicationWindow {
             .downcast_ref::<gtk::ListView>()
             .expect("Value has to be a ListView");
         let items_search_entry = imp
-            .items_search_entry
+            .browse_entry
             .downcast_ref::<gtk::SearchEntry>()
             .expect("Value has to be a SearchEntry");
         let sidebar_stack = imp.sidebar_stack.downcast_ref::<gtk::Stack>().unwrap();
@@ -179,7 +178,7 @@ impl ExampleApplicationWindow {
         group_choice
             .bind_property(
                 "selected-item",
-                imp.items_search_entry
+                imp.browse_entry
                     .downcast_ref::<gtk::SearchEntry>()
                     .expect("The value is of type gtk::SearchEntry"),
                 "placeholder-text",
@@ -266,6 +265,8 @@ impl ExampleApplicationWindow {
                             label.set_label(&name);
                         });
 
+                        // There seems to be some issue with search too.
+                        // Sometimes, no entries are shown while the search entry is empty.
                         let fuzzy_filter = gtk::CustomFilter::new(clone!(@weak items_search_entry => @default-return true, move |resource| {
                             let resource = resource
                                 .downcast_ref::<NamedPokeResourceObject>()
@@ -291,7 +292,6 @@ impl ExampleApplicationWindow {
 
                         selection_model.connect_selected_item_notify(clone!(@strong content_tx, @weak content_stack, @weak group_choice, @weak pokemon_content_imp => move |model| {
                             content_stack.set_visible_child_name("loading_page");
-
                             // pokemon_content_imp.main_sprite.set_icon_name(Some("image-missing-symbolic"));
 
                             if let Some(it) = model.selected_item() {
