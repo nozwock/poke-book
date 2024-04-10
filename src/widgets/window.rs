@@ -161,6 +161,10 @@ impl ExampleApplicationWindow {
         let sidebar_stack = imp.sidebar_stack.downcast_ref::<gtk::Stack>().unwrap();
         let content_stack = imp.content_stack.downcast_ref::<gtk::Stack>().unwrap();
         let group_choice = imp.group_choice.downcast_ref::<gtk::DropDown>().unwrap();
+        let sidebar_split = imp
+            .sidebar_split
+            .downcast_ref::<adw::NavigationSplitView>()
+            .unwrap();
 
         let pokemon_content = imp
             .pokemon_content
@@ -231,7 +235,7 @@ impl ExampleApplicationWindow {
 
         // Setting up ListView, Filters and stuff
         glib::spawn_future_local(
-            clone!(@strong rx, @strong content_tx, @weak browse_list, @weak items_search_entry, @weak sidebar_stack, @weak content_stack, @weak pokemon_content_imp, @weak group_choice => async move {
+            clone!(@strong rx, @strong content_tx, @weak browse_list, @weak items_search_entry, @weak sidebar_stack, @weak content_stack, @weak pokemon_content_imp, @weak group_choice, @weak sidebar_split => async move {
                 while let Ok(it) = rx.recv().await {
                     if let Ok(it) = it {
                         let objs = it.into_iter().map(|it| NamedPokeResourceObject::new(it)).collect::<Vec<_>>();
@@ -290,8 +294,10 @@ impl ExampleApplicationWindow {
                         selection_model.set_autoselect(false);
                         selection_model.set_model(Some(&filter_model));
 
-                        selection_model.connect_selected_item_notify(clone!(@strong content_tx, @weak content_stack, @weak group_choice, @weak pokemon_content_imp => move |model| {
+                        // Connect to click on the ListViewItem instead of item-selected, I think
+                        selection_model.connect_selected_item_notify(clone!(@strong content_tx, @weak content_stack, @weak group_choice, @weak pokemon_content_imp, @weak sidebar_split => move |model| {
                             content_stack.set_visible_child_name("loading_page");
+                            sidebar_split.set_show_content(true);
                             // pokemon_content_imp.main_sprite.set_icon_name(Some("image-missing-symbolic"));
 
                             if let Some(it) = model.selected_item() {
