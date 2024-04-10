@@ -1,11 +1,8 @@
-use adw::prelude::*;
 use adw::subclass::prelude::*;
 use gtk::glib;
 
 mod imp {
     use super::*;
-    use gtk::glib::Properties;
-    use std::cell::RefCell;
 
     #[derive(Debug, Default, gtk::CompositeTemplate)]
     #[template(resource = "/com/github/nozwock/PokeBook/ui/content-pages/pokemon.ui")]
