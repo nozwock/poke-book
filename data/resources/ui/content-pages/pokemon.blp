@@ -24,12 +24,90 @@ template $PokemonPageContent: Box {
             }
 
             Label name {
-                label: "";
-
                 styles [
                     "title-1"
                 ]
             }
+
+            Box {
+                orientation: horizontal;
+                spacing: 8;
+                homogeneous: true;
+                // Make a custom widget for this, maybe
+                Box {
+                    orientation: vertical;
+                    spacing: 2;
+
+                    Label {
+                        label: "Base Experience";
+
+                        styles [
+                            "dim-label",
+                            "caption-heading"
+                        ]
+                    }
+
+                    Label base_exp {}
+                }
+
+                Box {
+                    orientation: vertical;
+                    spacing: 2;
+
+                    Label {
+                        label: "Height";
+
+                        styles [
+                            "dim-label",
+                            "caption-heading"
+                        ]
+                    }
+
+                    Label height {}
+                }
+
+                Box {
+                    orientation: vertical;
+                    spacing: 2;
+
+                    Label {
+                        label: "Weight";
+
+                        styles [
+                            "dim-label",
+                            "caption-heading"
+                        ]
+                    }
+
+                    Label weight {}
+                }
+            }
+
+            // Box {
+            //     orientation: horizontal;
+            //     spacing: 8;
+            //     homogeneous: true;
+            //     Box {
+            //         orientation: vertical;
+            //         Label {
+            //             label: "Moves";
+            //             styles [
+            //                 "title-2",
+            //                 "dim-label"
+            //             ]
+            //         }
+            //     }
+            //     Box {
+            //         orientation: vertical;
+            //         Label {
+            //             label: "Abilities";
+            //             styles [
+            //                 "title-2",
+            //                 "dim-label"
+            //             ]
+            //         }
+            //     }
+            // }
         }
     }
 }

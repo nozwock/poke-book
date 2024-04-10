@@ -345,6 +345,9 @@ impl ExampleApplicationWindow {
                                 // as fetching the sprite will probably take longer than that
                                 pokemon_content_imp.name.set_label(&heck::AsTitleCase(model.name).to_string());
                                 pokemon_content_imp.main_sprite.set_paintable(Some(&texture));
+                                pokemon_content_imp.base_exp.set_label(&model.base_experience.unwrap().to_string());
+                                pokemon_content_imp.height.set_label(&model.height.to_string());
+                                pokemon_content_imp.weight.set_label(&model.weight.to_string());
 
                                 content_stack.set_visible_child_name("pokemon_page");
                             }

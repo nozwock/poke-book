@@ -14,6 +14,12 @@ mod imp {
         pub main_sprite: TemplateChild<gtk::Image>,
         #[template_child]
         pub name: TemplateChild<gtk::Label>,
+        #[template_child]
+        pub base_exp: TemplateChild<gtk::Label>,
+        #[template_child]
+        pub height: TemplateChild<gtk::Label>,
+        #[template_child]
+        pub weight: TemplateChild<gtk::Label>,
     }
 
     #[glib::object_subclass]
