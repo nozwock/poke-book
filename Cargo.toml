@@ -13,11 +13,12 @@ gtk = { version = "0.8", package = "gtk4", features = ["gnome_46"] }
 adw = { version = "0.6", package = "libadwaita", features = ["v1_5"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
-rustemon = "3.4.0"
+# rustemon = "3.4.0"
+rustemon = { git = "https://github.com/nozwock/rustemon.git", rev = "adca9ca2577ae2019c82f01cecc595e4e2400086" }
 async-channel = "2.2.0"
 tokio = { version = "1.37.0", features = ["full"] }
 anyhow = "1.0.81"
 heck = "0.5.0"
 fuzzy-matcher = "0.3.7"
-reqwest = "0.12.3"
+reqwest = "0.12"
 # reqwest = { version = "0.12.3", default-features = false, features = ["json", "rustls-tls"] }

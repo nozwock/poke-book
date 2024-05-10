@@ -318,7 +318,7 @@ impl ExampleApplicationWindow {
                                                 Ok(pokemon_model) => {
                                                     if let Some(ref it) = pokemon_model.sprites.other.official_artwork.front_default {
                                                         // note: This request is not being cached!!
-                                                        let bytes = glib::Bytes::from_owned(reqwest::get(it).await.unwrap().bytes().await.unwrap());
+                                                        let bytes = glib::Bytes::from_owned(rustemon_client().client.get(it).send().await.unwrap().bytes().await.unwrap());
                                                         let texture = gtk::gdk::Texture::from_bytes(&bytes).unwrap();
                                                         _ = content_tx.send(Ok(ContentMessage::Pokemon((pokemon_model, texture)))).await;
                                                     };
