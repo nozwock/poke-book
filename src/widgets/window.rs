@@ -280,8 +280,7 @@ impl ExampleApplicationWindow {
                             Ok::<_, anyhow::Error>(())
                         }
                     })().await {
-                        // note: No idea why this fails? `err.map_err(anyhow::Error::new);`
-                        _ = content_tx.send(Err(anyhow::anyhow!(err))).await;
+                        _ = content_tx.send(Err(err)).await;
                     };
                 }));
             }
@@ -450,6 +449,7 @@ impl ExampleApplicationWindow {
                             tracing::debug!(?uuid, "Dropped message");
                         }
                         Err(err) => {
+                            // todo: Will have to do the same thing for errors, to only display error for the last clicked item
                             tracing::error!(%err);
                             error_status.set_description(Some(&err.to_string()));
                             content_stack.set_visible_child_name("error_page");
