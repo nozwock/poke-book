@@ -148,6 +148,15 @@ template $ExampleApplicationWindow: Adw.ApplicationWindow {
           }
 
           StackPage {
+            name: "error_page";
+
+            child: Adw.StatusPage error_status {
+              icon-name: "dialog-warning-symbolic";
+              title: "An Error Occurred";
+            };
+          }
+
+          StackPage {
             name: "pokemon_page";
 
             child: $PokemonPageContent pokemon_content {};

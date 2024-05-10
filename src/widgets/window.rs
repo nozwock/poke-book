@@ -38,6 +38,9 @@ mod imp {
         pub content_stack: TemplateChild<gtk::Stack>,
 
         #[template_child]
+        pub error_status: TemplateChild<adw::StatusPage>,
+
+        #[template_child]
         pub pokemon_content: TemplateChild<PokemonPageContent>,
         #[template_child]
         pub move_content: TemplateChild<MovePageContent>,
@@ -55,6 +58,7 @@ mod imp {
                 sidebar_split: Default::default(),
                 sidebar_stack: Default::default(),
                 content_stack: Default::default(),
+                error_status: Default::default(),
                 pokemon_content: Default::default(),
                 move_content: Default::default(),
             }
@@ -172,6 +176,8 @@ impl ExampleApplicationWindow {
             .downcast_ref::<adw::NavigationSplitView>()
             .unwrap();
 
+        let error_status = imp.error_status.downcast_ref::<adw::StatusPage>().unwrap();
+
         let pokemon_content = imp
             .pokemon_content
             .downcast_ref::<PokemonPageContent>()
@@ -257,11 +263,13 @@ impl ExampleApplicationWindow {
                             match group {
                                 pokeapi::ResourceGroup::Pokemon => {
                                     let pokemon_model = rustemon::pokemon::pokemon::get_by_name(&resource, rustemon_client()).await?;
-                                    if let Some(ref it) = pokemon_model.sprites.other.official_artwork.front_default {
+                                    let texture = if let Some(ref it) = pokemon_model.sprites.other.official_artwork.front_default {
                                         let bytes = glib::Bytes::from_owned(rustemon_client().client.get(it).send().await?.bytes().await?);
-                                        let texture = gtk::gdk::Texture::from_bytes(&bytes)?;
-                                        _ = content_tx.send(Ok((uuid, ContentMessage::Pokemon((pokemon_model, texture))))).await;
+                                        Some(gtk::gdk::Texture::from_bytes(&bytes)?)
+                                    } else {
+                                        None
                                     };
+                                    _ = content_tx.send(Ok((uuid, ContentMessage::Pokemon((pokemon_model, texture))))).await;
                                 }
                                 pokeapi::ResourceGroup::Moves => {
                                     let move_model = rustemon::moves::move_::get_by_name(&resource, rustemon_client()).await?;
@@ -364,7 +372,7 @@ impl ExampleApplicationWindow {
         );
 
         glib::spawn_future_local(
-            clone!(@strong content_rx, @weak pokemon_content_imp, @weak move_content_imp, @weak content_stack => async move {
+            clone!(@strong content_rx, @weak pokemon_content_imp, @weak move_content_imp, @weak content_stack, @weak error_status => async move {
                 fn card_label(label: impl AsRef<str>) -> gtk::Box {
                     let box_ = gtk::Box::builder()
                         .css_classes(["card"])
@@ -396,8 +404,17 @@ impl ExampleApplicationWindow {
                                 ContentMessage::Pokemon((model, texture)) => {
                                     // todo: Could also send model and texture in different message, that'd allow to load model first
                                     // as fetching the sprite will probably take longer than that
+
+                                    match texture {
+                                        Some(texture) => {
+                                            pokemon_content_imp.main_sprite.set_paintable(Some(&texture));
+                                        }
+                                        None => {
+                                            pokemon_content_imp.main_sprite.set_icon_name(Some("view-paged-symbolic"));
+                                        }
+                                    };
+
                                     pokemon_content_imp.name.set_label(&heck::AsTitleCase(model.name).to_string());
-                                    pokemon_content_imp.main_sprite.set_paintable(Some(&texture));
                                     pokemon_content_imp.base_exp.set_label(&model.base_experience.unwrap().to_string());
                                     pokemon_content_imp.height.set_label(&model.height.to_string());
                                     pokemon_content_imp.weight.set_label(&model.weight.to_string());
@@ -434,6 +451,8 @@ impl ExampleApplicationWindow {
                         }
                         Err(err) => {
                             tracing::error!(%err);
+                            error_status.set_description(Some(&err.to_string()));
+                            content_stack.set_visible_child_name("error_page");
                         }
                     }
                 }
@@ -445,6 +464,6 @@ impl ExampleApplicationWindow {
 #[derive(Debug)]
 pub enum ContentMessage {
     Keep,
-    Pokemon((rustemon::model::pokemon::Pokemon, gdk::Texture)),
+    Pokemon((rustemon::model::pokemon::Pokemon, Option<gdk::Texture>)),
     Move(rustemon::model::moves::Move),
 }
