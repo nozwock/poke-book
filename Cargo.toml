@@ -21,4 +21,5 @@ anyhow = "1.0.81"
 heck = "0.5.0"
 fuzzy-matcher = "0.3.7"
 reqwest = "0.12"
+uuid = { version = "1.8.0", features = ["v4", "fast-rng", "macro-diagnostics"] }
 # reqwest = { version = "0.12.3", default-features = false, features = ["json", "rustls-tls"] }

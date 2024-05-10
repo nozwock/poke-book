@@ -10,6 +10,7 @@ use gtk::glib::clone;
 use gtk::{
     gdk, gio, glib, Expression, Label, PropertyExpression, SignalListItemFactory, SingleSelection,
 };
+use uuid::Uuid;
 
 use crate::application::ExampleApplication;
 use crate::config::{APP_ID, PROFILE};
@@ -225,8 +226,8 @@ impl ExampleApplicationWindow {
         // Sidebar
         let (group_tx, group_rx) = async_channel::unbounded::<anyhow::Result<Vec<String>>>();
 
-        // note: make it "generic" later with enum variants
-        let (content_tx, content_rx) = async_channel::unbounded::<anyhow::Result<ContentMessage>>();
+        let (content_tx, content_rx) =
+            async_channel::unbounded::<anyhow::Result<(Uuid, ContentMessage)>>();
 
         group_choice
             .connect_selected_item_notify(clone!(@weak sidebar_stack => move |choice| {
@@ -302,24 +303,31 @@ impl ExampleApplicationWindow {
                         selection_model.set_model(Some(&filter_model));
 
                         // note: Connect to click on the ListViewItem instead of item-selected, I think
+                        // ...I don't remember what this note was about, remove it after some time
                         selection_model.connect_selected_item_notify(clone!(@strong content_tx, @weak content_stack, @weak group_choice, @weak pokemon_content_imp, @weak sidebar_split => move |model| {
+                            let msg_uuid = Uuid::new_v4();
                             if let Some(it) = model.selected_item() {
+                                glib::spawn_future_local(clone!(@strong content_tx => async move {
+                                    // Inorder to only show the last clicked item
+                                    _ = content_tx.send(Ok((msg_uuid, ContentMessage::Keep))).await;
+                                }));
+
                                 content_stack.set_visible_child_name("loading_page");
                                 sidebar_split.set_show_content(true);
                                 // pokemon_content_imp.main_sprite.set_icon_name(Some("image-missing-symbolic"));
 
                                 let resource_name = it.downcast_ref::<NamedPokeResourceObject>().unwrap().name();
-                                tracing::debug!(?resource_name, "Selected an item");
+                                tracing::debug!(?resource_name, %msg_uuid, "Selected an item");
 
                                 match pokeapi::ResourceGroup::from(group_choice.selected()) {
                                     pokeapi::ResourceGroup::Pokemon => {
-                                        tokoi_runtime().spawn(clone!(@strong content_tx => async move {
+                                        tokoi_runtime().spawn(clone!(@strong content_tx, @strong msg_uuid => async move {
                                             match rustemon::pokemon::pokemon::get_by_name(&resource_name, rustemon_client()).await {
                                                 Ok(pokemon_model) => {
                                                     if let Some(ref it) = pokemon_model.sprites.other.official_artwork.front_default {
                                                         let bytes = glib::Bytes::from_owned(rustemon_client().client.get(it).send().await.unwrap().bytes().await.unwrap());
                                                         let texture = gtk::gdk::Texture::from_bytes(&bytes).unwrap();
-                                                        _ = content_tx.send(Ok(ContentMessage::Pokemon((pokemon_model, texture)))).await;
+                                                        _ = content_tx.send(Ok((msg_uuid, ContentMessage::Pokemon((pokemon_model, texture))))).await;
                                                     };
                                                 }
                                                 Err(err) => {
@@ -330,10 +338,10 @@ impl ExampleApplicationWindow {
                                         }));
                                     }
                                     pokeapi::ResourceGroup::Moves => {
-                                        tokoi_runtime().spawn(clone!(@strong content_tx => async move {
+                                        tokoi_runtime().spawn(clone!(@strong content_tx, @strong msg_uuid => async move {
                                             match rustemon::moves::move_::get_by_name(&resource_name, rustemon_client()).await {
                                                 Ok(move_model) => {
-                                                        _ = content_tx.send(Ok(ContentMessage::Move(move_model))).await;
+                                                        _ = content_tx.send(Ok((msg_uuid, ContentMessage::Move(move_model)))).await;
                                                 }
                                                 Err(err) => {
                                                     _ = content_tx.send(Err(anyhow::anyhow!(err))).await;
@@ -343,7 +351,6 @@ impl ExampleApplicationWindow {
                                     }
                                 };
                             }
-                            // todo: fetch resource and show it in its custom page
                         }));
 
                         browse_list.set_model(Some(&selection_model));
@@ -376,47 +383,54 @@ impl ExampleApplicationWindow {
             box_
         }
 
-        // todo: Still not OK!
-        // When multiple items are selected, only the latest one should be reflected on the page
         glib::spawn_future_local(
             clone!(@strong content_rx, @weak pokemon_content_imp, @weak move_content_imp, @weak content_stack => async move {
+                let mut keep_msg_uuid = None::<Uuid>;
                 while let Ok(it) = content_rx.recv().await {
                     match it {
-                        Ok(msg) => match msg {
-                            ContentMessage::Pokemon((model, texture)) => {
-                                // todo: Could also send model and texture in different message, that'd allow to load model first
-                                // as fetching the sprite will probably take longer than that
-                                pokemon_content_imp.name.set_label(&heck::AsTitleCase(model.name).to_string());
-                                pokemon_content_imp.main_sprite.set_paintable(Some(&texture));
-                                pokemon_content_imp.base_exp.set_label(&model.base_experience.unwrap().to_string());
-                                pokemon_content_imp.height.set_label(&model.height.to_string());
-                                pokemon_content_imp.weight.set_label(&model.weight.to_string());
+                        Ok((uuid, ContentMessage::Keep)) => {
+                            keep_msg_uuid = Some(uuid);
+                        }
+                        Ok((uuid, msg)) if keep_msg_uuid == Some(uuid) => {
+                            match msg {
+                                ContentMessage::Pokemon((model, texture)) => {
+                                    // todo: Could also send model and texture in different message, that'd allow to load model first
+                                    // as fetching the sprite will probably take longer than that
+                                    pokemon_content_imp.name.set_label(&heck::AsTitleCase(model.name).to_string());
+                                    pokemon_content_imp.main_sprite.set_paintable(Some(&texture));
+                                    pokemon_content_imp.base_exp.set_label(&model.base_experience.unwrap().to_string());
+                                    pokemon_content_imp.height.set_label(&model.height.to_string());
+                                    pokemon_content_imp.weight.set_label(&model.weight.to_string());
 
+                                    pokemon_content_imp.abilities_list.remove_all();
+                                    pokemon_content_imp.moves_list.remove_all();
+                                    for ability in &model.abilities {
+                                        // note: No idea how to center the cards...
+                                        pokemon_content_imp.abilities_list.append(&card_label(&ability.ability.name));
+                                    };
+                                    for move_ in &model.moves {
+                                        pokemon_content_imp.moves_list.append(&card_label(&move_.move_.name));
+                                    };
 
-                                pokemon_content_imp.abilities_list.remove_all();
-                                pokemon_content_imp.moves_list.remove_all();
-                                for ability in &model.abilities {
-                                    // note: No idea how to center the cards...
-                                    pokemon_content_imp.abilities_list.append(&card_label(&ability.ability.name));
-                                };
-                                for move_ in &model.moves {
-                                    pokemon_content_imp.moves_list.append(&card_label(&move_.move_.name));
-                                };
+                                    content_stack.set_visible_child_name("pokemon_page");
+                                }
+                                ContentMessage::Move(model) => {
+                                    move_content_imp.name.set_label(&heck::AsTitleCase(model.name).to_string());
+                                    move_content_imp.effect.set_label(&model.effect_entries.into_iter()
+                                        .filter(|it| it.language.name == "en").map(|it| it.short_effect).next().unwrap_or("Unknown effect.".into())
+                                    );
+                                    move_content_imp.power.set_label(&model.power.map_or_else(|| "—".into(), |it| it.to_string()));
+                                    move_content_imp.accuracy.set_label(&model.accuracy.map_or_else(|| "—".into(), |it| it.to_string()));
+                                    move_content_imp.pp.set_label(&model.pp.map_or_else(|| "—".into(), |it| it.to_string()));
+                                    move_content_imp.type_.set_label(&heck::AsTitleCase(model.type_.name).to_string());
 
-                                content_stack.set_visible_child_name("pokemon_page");
+                                    content_stack.set_visible_child_name("move_page");
+                                }
+                                _ => {}
                             }
-                            ContentMessage::Move(model) => {
-                                move_content_imp.name.set_label(&heck::AsTitleCase(model.name).to_string());
-                                move_content_imp.effect.set_label(&model.effect_entries.into_iter()
-                                    .filter(|it| it.language.name == "en").map(|it| it.short_effect).next().unwrap_or("Unknown effect.".into())
-                                );
-                                move_content_imp.power.set_label(&model.power.map_or_else(|| "—".into(), |it| it.to_string()));
-                                move_content_imp.accuracy.set_label(&model.accuracy.map_or_else(|| "—".into(), |it| it.to_string()));
-                                move_content_imp.pp.set_label(&model.pp.map_or_else(|| "—".into(), |it| it.to_string()));
-                                move_content_imp.type_.set_label(&heck::AsTitleCase(model.type_.name).to_string());
-
-                                content_stack.set_visible_child_name("move_page");
-                            }
+                        }
+                        Ok((uuid, _)) => {
+                            tracing::debug!(?uuid, "Dropped message");
                         }
                         Err(_err) => {}
                     }
@@ -426,7 +440,9 @@ impl ExampleApplicationWindow {
     }
 }
 
+#[derive(Debug)]
 pub enum ContentMessage {
+    Keep,
     Pokemon((rustemon::model::pokemon::Pokemon, gdk::Texture)),
     Move(rustemon::model::moves::Move),
 }
