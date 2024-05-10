@@ -304,9 +304,9 @@ impl ExampleApplicationWindow {
 
                         // note: Connect to click on the ListViewItem instead of item-selected, I think
                         // ...I don't remember what this note was about, remove it after some time
-                        selection_model.connect_selected_item_notify(clone!(@strong content_tx, @weak content_stack, @weak group_choice, @weak pokemon_content_imp, @weak sidebar_split => move |model| {
-                            let msg_uuid = Uuid::new_v4();
+                        selection_model.connect_selected_item_notify(clone!(@strong content_tx, @weak content_stack, @weak group_choice, @weak sidebar_split => move |model| {
                             if let Some(it) = model.selected_item() {
+                                let msg_uuid = Uuid::new_v4();
                                 glib::spawn_future_local(clone!(@strong content_tx => async move {
                                     // Inorder to only show the last clicked item
                                     _ = content_tx.send(Ok((msg_uuid, ContentMessage::Keep))).await;
@@ -314,14 +314,13 @@ impl ExampleApplicationWindow {
 
                                 content_stack.set_visible_child_name("loading_page");
                                 sidebar_split.set_show_content(true);
-                                // pokemon_content_imp.main_sprite.set_icon_name(Some("image-missing-symbolic"));
 
                                 let resource_name = it.downcast_ref::<NamedPokeResourceObject>().unwrap().name();
-                                tracing::debug!(?resource_name, %msg_uuid, "Selected an item");
+                                tracing::debug!(?resource_name, uuid = %msg_uuid, "Selected an item");
 
                                 match pokeapi::ResourceGroup::from(group_choice.selected()) {
                                     pokeapi::ResourceGroup::Pokemon => {
-                                        tokoi_runtime().spawn(clone!(@strong content_tx, @strong msg_uuid => async move {
+                                        tokoi_runtime().spawn(clone!(@strong content_tx => async move {
                                             match rustemon::pokemon::pokemon::get_by_name(&resource_name, rustemon_client()).await {
                                                 Ok(pokemon_model) => {
                                                     if let Some(ref it) = pokemon_model.sprites.other.official_artwork.front_default {
@@ -338,7 +337,7 @@ impl ExampleApplicationWindow {
                                         }));
                                     }
                                     pokeapi::ResourceGroup::Moves => {
-                                        tokoi_runtime().spawn(clone!(@strong content_tx, @strong msg_uuid => async move {
+                                        tokoi_runtime().spawn(clone!(@strong content_tx => async move {
                                             match rustemon::moves::move_::get_by_name(&resource_name, rustemon_client()).await {
                                                 Ok(move_model) => {
                                                         _ = content_tx.send(Ok((msg_uuid, ContentMessage::Move(move_model)))).await;
