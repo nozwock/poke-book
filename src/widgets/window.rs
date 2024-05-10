@@ -407,9 +407,12 @@ impl ExampleApplicationWindow {
                             }
                             ContentMessage::Move(model) => {
                                 move_content_imp.name.set_label(&heck::AsTitleCase(model.name).to_string());
-                                move_content_imp.power.set_label(&model.power.map_or_else(|| "None".to_string(), |it| it.to_string()));
-                                move_content_imp.accuracy.set_label(&model.accuracy.map_or_else(|| "None".to_string(), |it| it.to_string()));
-                                move_content_imp.pp.set_label(&model.pp.map_or_else(|| "None".to_string(), |it| it.to_string()));
+                                move_content_imp.effect.set_label(&model.effect_entries.into_iter()
+                                    .filter(|it| it.language.name == "en").map(|it| it.short_effect).next().unwrap_or("Unknown effect.".into())
+                                );
+                                move_content_imp.power.set_label(&model.power.map_or_else(|| "—".into(), |it| it.to_string()));
+                                move_content_imp.accuracy.set_label(&model.accuracy.map_or_else(|| "—".into(), |it| it.to_string()));
+                                move_content_imp.pp.set_label(&model.pp.map_or_else(|| "—".into(), |it| it.to_string()));
                                 move_content_imp.type_.set_label(&heck::AsTitleCase(model.type_.name).to_string());
 
                                 content_stack.set_visible_child_name("move_page");

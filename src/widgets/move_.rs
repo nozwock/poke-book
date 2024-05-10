@@ -12,6 +12,8 @@ mod imp {
         #[template_child]
         pub name: TemplateChild<gtk::Label>,
         #[template_child]
+        pub effect: TemplateChild<gtk::Label>,
+        #[template_child]
         pub power: TemplateChild<gtk::Label>,
         #[template_child]
         pub accuracy: TemplateChild<gtk::Label>,
