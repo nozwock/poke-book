@@ -72,8 +72,11 @@ template $ExampleApplicationWindow: Adw.ApplicationWindow {
             name: "loading_page";
 
             child: Adw.StatusPage {
-              title: "No Entries to Show";
               description: "Fetching entries for the group...";
+
+              Spinner {
+                spinning: true;
+              }
             };
           }
 

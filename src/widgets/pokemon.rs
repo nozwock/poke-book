@@ -17,6 +17,10 @@ mod imp {
         pub height: TemplateChild<gtk::Label>,
         #[template_child]
         pub weight: TemplateChild<gtk::Label>,
+        #[template_child]
+        pub abilities_list: TemplateChild<gtk::FlowBox>,
+        #[template_child]
+        pub moves_list: TemplateChild<gtk::FlowBox>,
     }
 
     #[glib::object_subclass]

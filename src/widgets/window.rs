@@ -224,7 +224,7 @@ impl ExampleApplicationWindow {
         group_choice
             .connect_selected_item_notify(clone!(@weak sidebar_stack => move |choice| {
                 // TODO: Show the loading page after figuring out how to defer it by 200-400ms?
-                // sidebar_stack.set_visible_child_name("loading_page");
+                sidebar_stack.set_visible_child_name("loading_page");
                 let group = pokeapi::ResourceGroup::from(choice.selected());
                 tracing::debug!(?group, "Entered group change handler");
                 tokoi_runtime().spawn(clone!(@strong tx => async move {
@@ -296,11 +296,11 @@ impl ExampleApplicationWindow {
 
                         // Connect to click on the ListViewItem instead of item-selected, I think
                         selection_model.connect_selected_item_notify(clone!(@strong content_tx, @weak content_stack, @weak group_choice, @weak pokemon_content_imp, @weak sidebar_split => move |model| {
-                            content_stack.set_visible_child_name("loading_page");
-                            sidebar_split.set_show_content(true);
-                            // pokemon_content_imp.main_sprite.set_icon_name(Some("image-missing-symbolic"));
-
                             if let Some(it) = model.selected_item() {
+                                content_stack.set_visible_child_name("loading_page");
+                                sidebar_split.set_show_content(true);
+                                // pokemon_content_imp.main_sprite.set_icon_name(Some("image-missing-symbolic"));
+
                                 let resource_name = it.downcast_ref::<NamedPokeResourceObject>().unwrap().name();
                                 tracing::debug!(?resource_name, "Selected an item");
 
@@ -354,6 +354,34 @@ impl ExampleApplicationWindow {
                                 pokemon_content_imp.base_exp.set_label(&model.base_experience.unwrap().to_string());
                                 pokemon_content_imp.height.set_label(&model.height.to_string());
                                 pokemon_content_imp.weight.set_label(&model.weight.to_string());
+
+                                fn card_label(label: impl AsRef<str>) -> gtk::Box {
+                                    let box_ = gtk::Box::builder().css_classes(["card"])
+                                        // .vexpand(true)
+                                        // .hexpand(true)
+                                    .build();
+                                    let label = gtk::Label::builder()
+                                        .label(&heck::AsTitleCase(label.as_ref()).to_string())
+                                        .vexpand(true)
+                                        .hexpand(true)
+                                        .margin_start(12)
+                                        .margin_end(12)
+                                        .margin_top(12)
+                                        .margin_bottom(12)
+                                        .build();
+                                    box_.append(&label);
+                                    box_
+                                }
+
+                                pokemon_content_imp.abilities_list.remove_all();
+                                pokemon_content_imp.moves_list.remove_all();
+                                for ability in &model.abilities {
+                                    // note: No idea how to center the cards...
+                                    pokemon_content_imp.abilities_list.append(&card_label(&ability.ability.name));
+                                };
+                                for move_ in &model.moves {
+                                    pokemon_content_imp.moves_list.append(&card_label(&move_.move_.name));
+                                };
 
                                 content_stack.set_visible_child_name("pokemon_page");
                             }
