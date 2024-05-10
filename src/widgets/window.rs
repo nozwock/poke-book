@@ -251,37 +251,31 @@ impl ExampleApplicationWindow {
                 content_stack.set_visible_child_name("loading_page");
                 sidebar_split.set_show_content(true);
 
-                match group {
-                    pokeapi::ResourceGroup::Pokemon => {
-                        tokoi_runtime().spawn(clone!(@strong content_tx => async move {
-                            match rustemon::pokemon::pokemon::get_by_name(&resource, rustemon_client()).await {
-                                Ok(pokemon_model) => {
+                tokoi_runtime().spawn(clone!(@strong content_tx => async move {
+                    if let Err(err) = (|| {
+                        async {
+                            match group {
+                                pokeapi::ResourceGroup::Pokemon => {
+                                    let pokemon_model = rustemon::pokemon::pokemon::get_by_name(&resource, rustemon_client()).await?;
                                     if let Some(ref it) = pokemon_model.sprites.other.official_artwork.front_default {
-                                        let bytes = glib::Bytes::from_owned(rustemon_client().client.get(it).send().await.unwrap().bytes().await.unwrap());
-                                        let texture = gtk::gdk::Texture::from_bytes(&bytes).unwrap();
+                                        let bytes = glib::Bytes::from_owned(rustemon_client().client.get(it).send().await?.bytes().await?);
+                                        let texture = gtk::gdk::Texture::from_bytes(&bytes)?;
                                         _ = content_tx.send(Ok((uuid, ContentMessage::Pokemon((pokemon_model, texture))))).await;
                                     };
                                 }
-                                Err(err) => {
-                                    // note: No idea why this fails? `err.map_err(anyhow::Error::new);`
-                                    _ = content_tx.send(Err(anyhow::anyhow!(err))).await;
+                                pokeapi::ResourceGroup::Moves => {
+                                    let move_model = rustemon::moves::move_::get_by_name(&resource, rustemon_client()).await?;
+                                    _ = content_tx.send(Ok((uuid, ContentMessage::Move(move_model)))).await;
                                 }
                             };
-                        }));
-                    }
-                    pokeapi::ResourceGroup::Moves => {
-                        tokoi_runtime().spawn(clone!(@strong content_tx => async move {
-                            match rustemon::moves::move_::get_by_name(&resource, rustemon_client()).await {
-                                Ok(move_model) => {
-                                        _ = content_tx.send(Ok((uuid, ContentMessage::Move(move_model)))).await;
-                                }
-                                Err(err) => {
-                                    _ = content_tx.send(Err(anyhow::anyhow!(err))).await;
-                                }
-                            };
-                        }));
-                    }
-                }
+
+                            Ok::<_, anyhow::Error>(())
+                        }
+                    })().await {
+                        // note: No idea why this fails? `err.map_err(anyhow::Error::new);`
+                        _ = content_tx.send(Err(anyhow::anyhow!(err))).await;
+                    };
+                }));
             }
         );
 
@@ -438,7 +432,9 @@ impl ExampleApplicationWindow {
                         Ok((uuid, _)) => {
                             tracing::debug!(?uuid, "Dropped message");
                         }
-                        Err(_err) => {}
+                        Err(err) => {
+                            tracing::error!(%err);
+                        }
                     }
                 }
             }),
