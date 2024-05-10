@@ -152,6 +152,12 @@ template $ExampleApplicationWindow: Adw.ApplicationWindow {
 
             child: $PokemonPageContent pokemon_content {};
           }
+
+          StackPage {
+            name: "move_page";
+
+            child: $MovePageContent move_content {};
+          }
         }
       }
     };

@@ -1,5 +1,6 @@
 use crate::models::poke_resource::NamedPokeResourceObject;
 use crate::pokeapi::rustemon_client;
+use crate::widgets::move_::MovePageContent;
 use crate::widgets::pokemon::PokemonPageContent;
 use crate::{pokeapi, skim_matcher, tokoi_runtime};
 use adw::prelude::*;
@@ -14,7 +15,7 @@ use crate::application::ExampleApplication;
 use crate::config::{APP_ID, PROFILE};
 
 mod imp {
-    use crate::widgets::pokemon::PokemonPageContent;
+    use crate::widgets::{move_::MovePageContent, pokemon::PokemonPageContent};
 
     use super::*;
 
@@ -37,6 +38,8 @@ mod imp {
 
         #[template_child]
         pub pokemon_content: TemplateChild<PokemonPageContent>,
+        #[template_child]
+        pub move_content: TemplateChild<MovePageContent>,
 
         pub settings: gio::Settings,
     }
@@ -52,6 +55,7 @@ mod imp {
                 sidebar_stack: Default::default(),
                 content_stack: Default::default(),
                 pokemon_content: Default::default(),
+                move_content: Default::default(),
             }
         }
     }
@@ -64,6 +68,7 @@ mod imp {
 
         fn class_init(klass: &mut Self::Class) {
             PokemonPageContent::ensure_type();
+            MovePageContent::ensure_type();
 
             klass.bind_template();
         }
@@ -171,6 +176,8 @@ impl ExampleApplicationWindow {
             .downcast_ref::<PokemonPageContent>()
             .unwrap();
         let pokemon_content_imp = pokemon_content.imp();
+        let move_content = imp.move_content.downcast_ref::<MovePageContent>().unwrap();
+        let move_content_imp = move_content.imp();
 
         let group_model = adw::EnumListModel::new(pokeapi::ResourceGroup::static_type());
         group_choice.set_model(Some(&group_model));
@@ -310,6 +317,7 @@ impl ExampleApplicationWindow {
                                             match rustemon::pokemon::pokemon::get_by_name(&resource_name, rustemon_client()).await {
                                                 Ok(pokemon_model) => {
                                                     if let Some(ref it) = pokemon_model.sprites.other.official_artwork.front_default {
+                                                        // note: This request is not being cached!!
                                                         let bytes = glib::Bytes::from_owned(reqwest::get(it).await.unwrap().bytes().await.unwrap());
                                                         let texture = gtk::gdk::Texture::from_bytes(&bytes).unwrap();
                                                         _ = content_tx.send(Ok(ContentMessage::Pokemon((pokemon_model, texture)))).await;
@@ -322,7 +330,19 @@ impl ExampleApplicationWindow {
                                             };
                                         }));
                                     }
-                                    _ => {}
+                                    pokeapi::ResourceGroup::Moves => {
+                                        tokoi_runtime().spawn(clone!(@strong content_tx => async move {
+                                            match rustemon::moves::move_::get_by_name(&resource_name, rustemon_client()).await {
+                                                Ok(move_model) => {
+                                                        _ = content_tx.send(Ok(ContentMessage::Move(move_model))).await;
+                                                }
+                                                Err(err) => {
+                                                    // No idea why this fails? `err.map_err(anyhow::Error::new);`
+                                                    _ = content_tx.send(Err(anyhow::anyhow!(err))).await;
+                                                }
+                                            };
+                                        }));
+                                    }
                                 };
                             }
                             // TODO: fetch resource and show it in its custom page
@@ -341,8 +361,28 @@ impl ExampleApplicationWindow {
 
         // Still not OK!
         // When multiple items are selected, only the latest one should be reflected on the page
+
+        fn card_label(label: impl AsRef<str>) -> gtk::Box {
+            let box_ = gtk::Box::builder()
+                .css_classes(["card"])
+                // .vexpand(true)
+                // .hexpand(true)
+                .build();
+            let label = gtk::Label::builder()
+                .label(&heck::AsTitleCase(label.as_ref()).to_string())
+                .vexpand(true)
+                .hexpand(true)
+                .margin_start(12)
+                .margin_end(12)
+                .margin_top(12)
+                .margin_bottom(12)
+                .build();
+            box_.append(&label);
+            box_
+        }
+
         glib::spawn_future_local(
-            clone!(@strong content_rx, @weak pokemon_content_imp, @weak content_stack => async move {
+            clone!(@strong content_rx, @weak pokemon_content_imp, @weak move_content_imp, @weak content_stack => async move {
                 while let Ok(it) = content_rx.recv().await {
                     match it {
                         Ok(msg) => match msg {
@@ -355,23 +395,6 @@ impl ExampleApplicationWindow {
                                 pokemon_content_imp.height.set_label(&model.height.to_string());
                                 pokemon_content_imp.weight.set_label(&model.weight.to_string());
 
-                                fn card_label(label: impl AsRef<str>) -> gtk::Box {
-                                    let box_ = gtk::Box::builder().css_classes(["card"])
-                                        // .vexpand(true)
-                                        // .hexpand(true)
-                                    .build();
-                                    let label = gtk::Label::builder()
-                                        .label(&heck::AsTitleCase(label.as_ref()).to_string())
-                                        .vexpand(true)
-                                        .hexpand(true)
-                                        .margin_start(12)
-                                        .margin_end(12)
-                                        .margin_top(12)
-                                        .margin_bottom(12)
-                                        .build();
-                                    box_.append(&label);
-                                    box_
-                                }
 
                                 pokemon_content_imp.abilities_list.remove_all();
                                 pokemon_content_imp.moves_list.remove_all();
@@ -385,6 +408,15 @@ impl ExampleApplicationWindow {
 
                                 content_stack.set_visible_child_name("pokemon_page");
                             }
+                            ContentMessage::Move(model) => {
+                                move_content_imp.name.set_label(&heck::AsTitleCase(model.name).to_string());
+                                move_content_imp.power.set_label(&model.power.map_or_else(|| "None".to_string(), |it| it.to_string()));
+                                move_content_imp.accuracy.set_label(&model.accuracy.map_or_else(|| "None".to_string(), |it| it.to_string()));
+                                move_content_imp.pp.set_label(&model.pp.map_or_else(|| "None".to_string(), |it| it.to_string()));
+                                move_content_imp.type_.set_label(&heck::AsTitleCase(model.type_.name).to_string());
+
+                                content_stack.set_visible_child_name("move_page");
+                            }
                         }
                         Err(_err) => {}
                     }
@@ -396,4 +428,5 @@ impl ExampleApplicationWindow {
 
 pub enum ContentMessage {
     Pokemon((rustemon::model::pokemon::Pokemon, gdk::Texture)),
+    Move(rustemon::model::moves::Move),
 }

@@ -1,12 +1,20 @@
 # Resources
-blueprints = custom_target('blueprints',
+blueprints = custom_target(
+  'blueprints',
   input: files(
-    'ui/window.blp',
-    'ui/shortcuts.blp',
+    'ui/content-pages/move.blp',
     'ui/content-pages/pokemon.blp',
+    'ui/shortcuts.blp',
+    'ui/window.blp',
   ),
   output: '.',
-  command: [find_program('blueprint-compiler'), 'batch-compile', '@OUTPUT@', '@CURRENT_SOURCE_DIR@', '@INPUT@'],
+  command: [
+    find_program('blueprint-compiler'),
+    'batch-compile',
+    '@OUTPUT@',
+    '@CURRENT_SOURCE_DIR@',
+    '@INPUT@',
+  ],
 )
 
 resources = gnome.compile_resources(
