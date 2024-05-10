@@ -287,7 +287,7 @@ impl ExampleApplicationWindow {
 
         // Setting up ListView, Filters and stuff
         glib::spawn_future_local(
-            clone!(@strong group_rx, @strong content_tx, @weak browse_list, @weak items_search_entry, @weak sidebar_stack, @weak content_stack, @weak pokemon_content_imp, @weak group_choice, @weak sidebar_split => async move {
+            clone!(@strong group_rx, @weak browse_list, @weak items_search_entry, @weak sidebar_stack, @weak group_choice => async move {
                 while let Ok(it) = group_rx.recv().await {
                     if let Ok(it) = it {
                         let objs = it.into_iter().map(|it| NamedPokeResourceObject::new(it)).collect::<Vec<_>>();
@@ -369,28 +369,29 @@ impl ExampleApplicationWindow {
             }),
         );
 
-        fn card_label(label: impl AsRef<str>) -> gtk::Box {
-            let box_ = gtk::Box::builder()
-                .css_classes(["card"])
-                // .vexpand(true)
-                // .hexpand(true)
-                .build();
-            let label = gtk::Label::builder()
-                .label(&heck::AsTitleCase(label.as_ref()).to_string())
-                .vexpand(true)
-                .hexpand(true)
-                .margin_start(12)
-                .margin_end(12)
-                .margin_top(12)
-                .margin_bottom(12)
-                .build();
-            box_.append(&label);
-            box_
-        }
-
         glib::spawn_future_local(
             clone!(@strong content_rx, @weak pokemon_content_imp, @weak move_content_imp, @weak content_stack => async move {
+                fn card_label(label: impl AsRef<str>) -> gtk::Box {
+                    let box_ = gtk::Box::builder()
+                        .css_classes(["card"])
+                        // .vexpand(true)
+                        // .hexpand(true)
+                        .build();
+                    let label = gtk::Label::builder()
+                        .label(&heck::AsTitleCase(label.as_ref()).to_string())
+                        .vexpand(true)
+                        .hexpand(true)
+                        .margin_start(12)
+                        .margin_end(12)
+                        .margin_top(12)
+                        .margin_bottom(12)
+                        .build();
+                    box_.append(&label);
+                    box_
+                }
+
                 let mut keep_msg_uuid = None::<Uuid>;
+
                 while let Ok(it) = content_rx.recv().await {
                     match it {
                         Ok((uuid, ContentMessage::Keep)) => {
