@@ -241,6 +241,50 @@ impl ExampleApplicationWindow {
             }));
         group_choice.notify("selected-item");
 
+        let signal_content_update = clone!(
+            @strong content_tx, @weak content_stack, @weak sidebar_split => move |uuid: Uuid, group: pokeapi::ResourceGroup, resource: String| {
+                glib::spawn_future_local(clone!(@strong content_tx => async move {
+                    // Inorder to only show the last clicked item
+                    _ = content_tx.send(Ok((uuid, ContentMessage::Keep))).await;
+                }));
+
+                content_stack.set_visible_child_name("loading_page");
+                sidebar_split.set_show_content(true);
+
+                match group {
+                    pokeapi::ResourceGroup::Pokemon => {
+                        tokoi_runtime().spawn(clone!(@strong content_tx => async move {
+                            match rustemon::pokemon::pokemon::get_by_name(&resource, rustemon_client()).await {
+                                Ok(pokemon_model) => {
+                                    if let Some(ref it) = pokemon_model.sprites.other.official_artwork.front_default {
+                                        let bytes = glib::Bytes::from_owned(rustemon_client().client.get(it).send().await.unwrap().bytes().await.unwrap());
+                                        let texture = gtk::gdk::Texture::from_bytes(&bytes).unwrap();
+                                        _ = content_tx.send(Ok((uuid, ContentMessage::Pokemon((pokemon_model, texture))))).await;
+                                    };
+                                }
+                                Err(err) => {
+                                    // note: No idea why this fails? `err.map_err(anyhow::Error::new);`
+                                    _ = content_tx.send(Err(anyhow::anyhow!(err))).await;
+                                }
+                            };
+                        }));
+                    }
+                    pokeapi::ResourceGroup::Moves => {
+                        tokoi_runtime().spawn(clone!(@strong content_tx => async move {
+                            match rustemon::moves::move_::get_by_name(&resource, rustemon_client()).await {
+                                Ok(move_model) => {
+                                        _ = content_tx.send(Ok((uuid, ContentMessage::Move(move_model)))).await;
+                                }
+                                Err(err) => {
+                                    _ = content_tx.send(Err(anyhow::anyhow!(err))).await;
+                                }
+                            };
+                        }));
+                    }
+                }
+            }
+        );
+
         // Setting up ListView, Filters and stuff
         glib::spawn_future_local(
             clone!(@strong group_rx, @strong content_tx, @weak browse_list, @weak items_search_entry, @weak sidebar_stack, @weak content_stack, @weak pokemon_content_imp, @weak group_choice, @weak sidebar_split => async move {
@@ -304,51 +348,13 @@ impl ExampleApplicationWindow {
 
                         // note: Connect to click on the ListViewItem instead of item-selected, I think
                         // ...I don't remember what this note was about, remove it after some time
-                        selection_model.connect_selected_item_notify(clone!(@strong content_tx, @weak content_stack, @weak group_choice, @weak sidebar_split => move |model| {
+                        selection_model.connect_selected_item_notify(clone!(@weak group_choice, @strong signal_content_update => move |model| {
                             if let Some(it) = model.selected_item() {
-                                let msg_uuid = Uuid::new_v4();
-                                glib::spawn_future_local(clone!(@strong content_tx => async move {
-                                    // Inorder to only show the last clicked item
-                                    _ = content_tx.send(Ok((msg_uuid, ContentMessage::Keep))).await;
-                                }));
-
-                                content_stack.set_visible_child_name("loading_page");
-                                sidebar_split.set_show_content(true);
-
+                                let uuid = Uuid::new_v4();
                                 let resource_name = it.downcast_ref::<NamedPokeResourceObject>().unwrap().name();
-                                tracing::debug!(?resource_name, uuid = %msg_uuid, "Selected an item");
+                                tracing::debug!(?resource_name, %uuid, "Selected an item");
 
-                                match pokeapi::ResourceGroup::from(group_choice.selected()) {
-                                    pokeapi::ResourceGroup::Pokemon => {
-                                        tokoi_runtime().spawn(clone!(@strong content_tx => async move {
-                                            match rustemon::pokemon::pokemon::get_by_name(&resource_name, rustemon_client()).await {
-                                                Ok(pokemon_model) => {
-                                                    if let Some(ref it) = pokemon_model.sprites.other.official_artwork.front_default {
-                                                        let bytes = glib::Bytes::from_owned(rustemon_client().client.get(it).send().await.unwrap().bytes().await.unwrap());
-                                                        let texture = gtk::gdk::Texture::from_bytes(&bytes).unwrap();
-                                                        _ = content_tx.send(Ok((msg_uuid, ContentMessage::Pokemon((pokemon_model, texture))))).await;
-                                                    };
-                                                }
-                                                Err(err) => {
-                                                    // note: No idea why this fails? `err.map_err(anyhow::Error::new);`
-                                                    _ = content_tx.send(Err(anyhow::anyhow!(err))).await;
-                                                }
-                                            };
-                                        }));
-                                    }
-                                    pokeapi::ResourceGroup::Moves => {
-                                        tokoi_runtime().spawn(clone!(@strong content_tx => async move {
-                                            match rustemon::moves::move_::get_by_name(&resource_name, rustemon_client()).await {
-                                                Ok(move_model) => {
-                                                        _ = content_tx.send(Ok((msg_uuid, ContentMessage::Move(move_model)))).await;
-                                                }
-                                                Err(err) => {
-                                                    _ = content_tx.send(Err(anyhow::anyhow!(err))).await;
-                                                }
-                                            };
-                                        }));
-                                    }
-                                };
+                                signal_content_update(uuid, pokeapi::ResourceGroup::from(group_choice.selected()), resource_name);
                             }
                         }));
 
