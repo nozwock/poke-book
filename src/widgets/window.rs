@@ -225,7 +225,7 @@ impl ExampleApplicationWindow {
         // Sidebar
         let (tx, rx) = async_channel::unbounded::<anyhow::Result<Vec<String>>>();
 
-        // make it "generic" later with enum variants
+        // note: make it "generic" later with enum variants
         let (content_tx, content_rx) = async_channel::unbounded::<anyhow::Result<ContentMessage>>();
 
         group_choice
@@ -276,7 +276,7 @@ impl ExampleApplicationWindow {
                             label.set_label(&name);
                         });
 
-                        // There seems to be some issue with search too.
+                        // note: There seems to be some issue with search too.
                         // Sometimes, no entries are shown while the search entry is empty.
                         let fuzzy_filter = gtk::CustomFilter::new(clone!(@weak items_search_entry => @default-return true, move |resource| {
                             let resource = resource
@@ -301,7 +301,7 @@ impl ExampleApplicationWindow {
                         selection_model.set_autoselect(false);
                         selection_model.set_model(Some(&filter_model));
 
-                        // Connect to click on the ListViewItem instead of item-selected, I think
+                        // note: Connect to click on the ListViewItem instead of item-selected, I think
                         selection_model.connect_selected_item_notify(clone!(@strong content_tx, @weak content_stack, @weak group_choice, @weak pokemon_content_imp, @weak sidebar_split => move |model| {
                             if let Some(it) = model.selected_item() {
                                 content_stack.set_visible_child_name("loading_page");
@@ -317,14 +317,13 @@ impl ExampleApplicationWindow {
                                             match rustemon::pokemon::pokemon::get_by_name(&resource_name, rustemon_client()).await {
                                                 Ok(pokemon_model) => {
                                                     if let Some(ref it) = pokemon_model.sprites.other.official_artwork.front_default {
-                                                        // note: This request is not being cached!!
                                                         let bytes = glib::Bytes::from_owned(rustemon_client().client.get(it).send().await.unwrap().bytes().await.unwrap());
                                                         let texture = gtk::gdk::Texture::from_bytes(&bytes).unwrap();
                                                         _ = content_tx.send(Ok(ContentMessage::Pokemon((pokemon_model, texture)))).await;
                                                     };
                                                 }
                                                 Err(err) => {
-                                                    // No idea why this fails? `err.map_err(anyhow::Error::new);`
+                                                    // note: No idea why this fails? `err.map_err(anyhow::Error::new);`
                                                     _ = content_tx.send(Err(anyhow::anyhow!(err))).await;
                                                 }
                                             };
@@ -337,7 +336,6 @@ impl ExampleApplicationWindow {
                                                         _ = content_tx.send(Ok(ContentMessage::Move(move_model))).await;
                                                 }
                                                 Err(err) => {
-                                                    // No idea why this fails? `err.map_err(anyhow::Error::new);`
                                                     _ = content_tx.send(Err(anyhow::anyhow!(err))).await;
                                                 }
                                             };
@@ -345,7 +343,7 @@ impl ExampleApplicationWindow {
                                     }
                                 };
                             }
-                            // TODO: fetch resource and show it in its custom page
+                            // todo: fetch resource and show it in its custom page
                         }));
 
                         browse_list.set_model(Some(&selection_model));
@@ -358,9 +356,6 @@ impl ExampleApplicationWindow {
                 }
             }),
         );
-
-        // Still not OK!
-        // When multiple items are selected, only the latest one should be reflected on the page
 
         fn card_label(label: impl AsRef<str>) -> gtk::Box {
             let box_ = gtk::Box::builder()
@@ -381,13 +376,15 @@ impl ExampleApplicationWindow {
             box_
         }
 
+        // todo: Still not OK!
+        // When multiple items are selected, only the latest one should be reflected on the page
         glib::spawn_future_local(
             clone!(@strong content_rx, @weak pokemon_content_imp, @weak move_content_imp, @weak content_stack => async move {
                 while let Ok(it) = content_rx.recv().await {
                     match it {
                         Ok(msg) => match msg {
                             ContentMessage::Pokemon((model, texture)) => {
-                                // Could also send model and texture in different message, that'd allow to load model first
+                                // todo: Could also send model and texture in different message, that'd allow to load model first
                                 // as fetching the sprite will probably take longer than that
                                 pokemon_content_imp.name.set_label(&heck::AsTitleCase(model.name).to_string());
                                 pokemon_content_imp.main_sprite.set_paintable(Some(&texture));
