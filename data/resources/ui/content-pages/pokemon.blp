@@ -1,5 +1,6 @@
 using Gtk 4.0;
-// using Adw 1;
+using Adw 1;
+
 template $PokemonPageContent: Box {
     orientation: vertical;
 
@@ -10,9 +11,9 @@ template $PokemonPageContent: Box {
 
         Box {
             orientation: vertical;
-            spacing: 8;
             halign: center;
             valign: center;
+            spacing: 8;
             margin-top: 12;
             margin-bottom: 12;
             margin-start: 12;
@@ -29,57 +30,43 @@ template $PokemonPageContent: Box {
                 ]
             }
 
-            Box {
-                orientation: horizontal;
-                spacing: 8;
-                homogeneous: true;
-                // Make a custom widget for this, maybe
-                Box {
-                    orientation: vertical;
-                    spacing: 2;
+            Adw.Clamp {
+                maximum-size: 400;
+                tightening-threshold: 300;
 
-                    Label {
-                        label: "Base Experience";
+                Adw.PreferencesGroup {
+                    Adw.ActionRow {
+                        title: "Base Experience";
 
-                        styles [
-                            "dim-label",
-                            "heading"
-                        ]
+                        [suffix]
+                        Label base_exp {
+                            styles [
+                                "dim-label"
+                            ]
+                        }
                     }
 
-                    Label base_exp {}
-                }
+                    Adw.ActionRow {
+                        title: "Height";
 
-                Box {
-                    orientation: vertical;
-                    spacing: 2;
-
-                    Label {
-                        label: "Height";
-
-                        styles [
-                            "dim-label",
-                            "heading"
-                        ]
+                        [suffix]
+                        Label height {
+                            styles [
+                                "dim-label"
+                            ]
+                        }
                     }
 
-                    Label height {}
-                }
+                    Adw.ActionRow {
+                        title: "Weight";
 
-                Box {
-                    orientation: vertical;
-                    spacing: 2;
-
-                    Label {
-                        label: "Weight";
-
-                        styles [
-                            "dim-label",
-                            "heading"
-                        ]
+                        [suffix]
+                        Label weight {
+                            styles [
+                                "dim-label"
+                            ]
+                        }
                     }
-
-                    Label weight {}
                 }
             }
 

@@ -1,4 +1,5 @@
 using Gtk 4.0;
+using Adw 1;
 
 template $MovePageContent: Box {
     orientation: vertical;
@@ -24,73 +25,54 @@ template $MovePageContent: Box {
                 ]
             }
 
-            Box {
-                orientation: horizontal;
-                spacing: 8;
-                homogeneous: true;
+            Adw.Clamp {
+                maximum-size: 400;
+                tightening-threshold: 300;
 
-                Box {
-                    orientation: vertical;
-                    spacing: 2;
+                Adw.PreferencesGroup {
+                    Adw.ActionRow {
+                        title: "Type";
 
-                    Label {
-                        label: "Power";
-
-                        styles [
-                            "dim-label",
-                            "heading"
-                        ]
+                        [suffix]
+                        Label type_ {
+                            styles [
+                                "dim-label"
+                            ]
+                        }
                     }
 
-                    Label power {}
-                }
+                    Adw.ActionRow {
+                        title: "Power";
 
-                Box {
-                    orientation: vertical;
-                    spacing: 2;
-
-                    Label {
-                        label: "Accuracy";
-
-                        styles [
-                            "dim-label",
-                            "heading"
-                        ]
+                        [suffix]
+                        Label power {
+                            styles [
+                                "dim-label"
+                            ]
+                        }
                     }
 
-                    Label accuracy {}
-                }
+                    Adw.ActionRow {
+                        title: "Accuracy";
 
-                Box {
-                    orientation: vertical;
-                    spacing: 2;
-
-                    Label {
-                        label: "PP";
-
-                        styles [
-                            "dim-label",
-                            "heading"
-                        ]
+                        [suffix]
+                        Label accuracy {
+                            styles [
+                                "dim-label"
+                            ]
+                        }
                     }
 
-                    Label pp {}
-                }
+                    Adw.ActionRow {
+                        title: "PP";
 
-                Box {
-                    orientation: vertical;
-                    spacing: 2;
-
-                    Label {
-                        label: "Type";
-
-                        styles [
-                            "dim-label",
-                            "heading"
-                        ]
+                        [suffix]
+                        Label pp {
+                            styles [
+                                "dim-label"
+                            ]
+                        }
                     }
-
-                    Label type_ {}
                 }
             }
         }

@@ -223,7 +223,7 @@ impl ExampleApplicationWindow {
         }
 
         // Sidebar
-        let (tx, rx) = async_channel::unbounded::<anyhow::Result<Vec<String>>>();
+        let (group_tx, group_rx) = async_channel::unbounded::<anyhow::Result<Vec<String>>>();
 
         // note: make it "generic" later with enum variants
         let (content_tx, content_rx) = async_channel::unbounded::<anyhow::Result<ContentMessage>>();
@@ -234,16 +234,16 @@ impl ExampleApplicationWindow {
                 sidebar_stack.set_visible_child_name("loading_page");
                 let group = pokeapi::ResourceGroup::from(choice.selected());
                 tracing::debug!(?group, "Entered group change handler");
-                tokoi_runtime().spawn(clone!(@strong tx => async move {
-                    _ = tx.send(get_all_entries(group).await).await.inspect_err(|e| tracing::error!(%e));
+                tokoi_runtime().spawn(clone!(@strong group_tx => async move {
+                    _ = group_tx.send(get_all_entries(group).await).await.inspect_err(|e| tracing::error!(%e));
                 }));
             }));
         group_choice.notify("selected-item");
 
         // Setting up ListView, Filters and stuff
         glib::spawn_future_local(
-            clone!(@strong rx, @strong content_tx, @weak browse_list, @weak items_search_entry, @weak sidebar_stack, @weak content_stack, @weak pokemon_content_imp, @weak group_choice, @weak sidebar_split => async move {
-                while let Ok(it) = rx.recv().await {
+            clone!(@strong group_rx, @strong content_tx, @weak browse_list, @weak items_search_entry, @weak sidebar_stack, @weak content_stack, @weak pokemon_content_imp, @weak group_choice, @weak sidebar_split => async move {
+                while let Ok(it) = group_rx.recv().await {
                     if let Ok(it) = it {
                         let objs = it.into_iter().map(|it| NamedPokeResourceObject::new(it)).collect::<Vec<_>>();
                         let browse_model = gio::ListStore::new::<NamedPokeResourceObject>();
