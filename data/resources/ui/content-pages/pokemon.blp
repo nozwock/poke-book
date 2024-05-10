@@ -10,90 +10,87 @@ template $PokemonPageContent: Box {
 
         Box {
             orientation: vertical;
-            spacing: 12;
+            spacing: 8;
+            halign: center;
+            valign: center;
+            margin-top: 12;
+            margin-bottom: 12;
+            margin-start: 12;
+            margin-end: 12;
+
+            Image main_sprite {
+                icon-name: "image-missing-symbolic";
+                pixel-size: 192;
+            }
+
+            Label name {
+                styles [
+                    "title-1"
+                ]
+            }
 
             Box {
-                orientation: vertical;
-                halign: center;
-                valign: center;
+                orientation: horizontal;
                 spacing: 8;
-                margin-top: 12;
-                margin-bottom: 12;
-                margin-start: 12;
-                margin-end: 12;
+                homogeneous: true;
+                // Make a custom widget for this, maybe
+                Box {
+                    orientation: vertical;
+                    spacing: 2;
 
-                Image main_sprite {
-                    icon-name: "image-missing-symbolic";
-                    pixel-size: 192;
-                }
+                    Label {
+                        label: "Base Experience";
 
-                Label name {
-                    styles [
-                        "title-1"
-                    ]
+                        styles [
+                            "dim-label",
+                            "heading"
+                        ]
+                    }
+
+                    Label base_exp {}
                 }
 
                 Box {
-                    orientation: horizontal;
-                    spacing: 8;
-                    homogeneous: true;
-                    // Make a custom widget for this, maybe
-                    Box {
-                        orientation: vertical;
-                        spacing: 2;
+                    orientation: vertical;
+                    spacing: 2;
 
-                        Label {
-                            label: "Base Experience";
+                    Label {
+                        label: "Height";
 
-                            styles [
-                                "dim-label",
-                                "heading"
-                            ]
-                        }
-
-                        Label base_exp {}
+                        styles [
+                            "dim-label",
+                            "heading"
+                        ]
                     }
 
-                    Box {
-                        orientation: vertical;
-                        spacing: 2;
+                    Label height {}
+                }
 
-                        Label {
-                            label: "Height";
+                Box {
+                    orientation: vertical;
+                    spacing: 2;
 
-                            styles [
-                                "dim-label",
-                                "heading"
-                            ]
-                        }
+                    Label {
+                        label: "Weight";
 
-                        Label height {}
+                        styles [
+                            "dim-label",
+                            "heading"
+                        ]
                     }
 
-                    Box {
-                        orientation: vertical;
-                        spacing: 2;
-
-                        Label {
-                            label: "Weight";
-
-                            styles [
-                                "dim-label",
-                                "heading"
-                            ]
-                        }
-
-                        Label weight {}
-                    }
+                    Label weight {}
                 }
             }
 
-            Separator {}
+            Separator {
+                margin-top: 12;
+            }
 
             Box {
                 orientation: vertical;
-                halign: center;
-                valign: center;
+                halign: fill;
+                valign: fill;
                 spacing: 12;
                 margin-top: 12;
                 margin-bottom: 12;
