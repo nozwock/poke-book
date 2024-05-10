@@ -1,0 +1,98 @@
+using Gtk 4.0;
+
+template $MovePageContent: Box {
+    orientation: vertical;
+
+    ScrolledWindow {
+        hexpand: true;
+        vexpand: true;
+        hscrollbar-policy: never;
+
+        Box {
+            orientation: vertical;
+            halign: center;
+            valign: center;
+            spacing: 8;
+            margin-top: 12;
+            margin-bottom: 12;
+            margin-start: 12;
+            margin-end: 12;
+
+            Label name {
+                styles [
+                    "title-1"
+                ]
+            }
+
+            Box {
+                orientation: horizontal;
+                spacing: 8;
+                homogeneous: true;
+
+                Box {
+                    orientation: vertical;
+                    spacing: 2;
+
+                    Label {
+                        label: "Power";
+
+                        styles [
+                            "dim-label",
+                            "heading"
+                        ]
+                    }
+
+                    Label power {}
+                }
+
+                Box {
+                    orientation: vertical;
+                    spacing: 2;
+
+                    Label {
+                        label: "Accuracy";
+
+                        styles [
+                            "dim-label",
+                            "heading"
+                        ]
+                    }
+
+                    Label accuracy {}
+                }
+
+                Box {
+                    orientation: vertical;
+                    spacing: 2;
+
+                    Label {
+                        label: "PP";
+
+                        styles [
+                            "dim-label",
+                            "heading"
+                        ]
+                    }
+
+                    Label pp {}
+                }
+
+                Box {
+                    orientation: vertical;
+                    spacing: 2;
+
+                    Label {
+                        label: "Type";
+
+                        styles [
+                            "dim-label",
+                            "heading"
+                        ]
+                    }
+
+                    Label type_ {}
+                }
+            }
+        }
+    }
+}
