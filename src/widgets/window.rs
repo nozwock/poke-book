@@ -1,5 +1,6 @@
 use crate::models::poke_resource::NamedPokeResourceObject;
 use crate::pokeapi::rustemon_client;
+use crate::widgets::ability::AbilityPageContent;
 use crate::widgets::move_::MovePageContent;
 use crate::widgets::pokemon::PokemonPageContent;
 use crate::{pokeapi, skim_matcher, tokoi_runtime};
@@ -16,7 +17,9 @@ use crate::application::ExampleApplication;
 use crate::config::{APP_ID, PROFILE};
 
 mod imp {
-    use crate::widgets::{move_::MovePageContent, pokemon::PokemonPageContent};
+    use crate::widgets::{
+        ability::AbilityPageContent, move_::MovePageContent, pokemon::PokemonPageContent,
+    };
 
     use super::*;
 
@@ -44,6 +47,8 @@ mod imp {
         pub pokemon_content: TemplateChild<PokemonPageContent>,
         #[template_child]
         pub move_content: TemplateChild<MovePageContent>,
+        #[template_child]
+        pub ability_content: TemplateChild<AbilityPageContent>,
 
         pub settings: gio::Settings,
     }
@@ -61,6 +66,7 @@ mod imp {
                 error_status: Default::default(),
                 pokemon_content: Default::default(),
                 move_content: Default::default(),
+                ability_content: Default::default(),
             }
         }
     }
@@ -74,6 +80,7 @@ mod imp {
         fn class_init(klass: &mut Self::Class) {
             PokemonPageContent::ensure_type();
             MovePageContent::ensure_type();
+            AbilityPageContent::ensure_type();
 
             klass.bind_template();
         }
@@ -185,6 +192,11 @@ impl ExampleApplicationWindow {
         let pokemon_content_imp = pokemon_content.imp();
         let move_content = imp.move_content.downcast_ref::<MovePageContent>().unwrap();
         let move_content_imp = move_content.imp();
+        let ability_content = imp
+            .ability_content
+            .downcast_ref::<AbilityPageContent>()
+            .unwrap();
+        let ability_content_imp = ability_content.imp();
 
         let group_model = adw::EnumListModel::new(pokeapi::ResourceGroup::static_type());
         group_choice.set_model(Some(&group_model));
@@ -225,6 +237,9 @@ impl ExampleApplicationWindow {
                 }
                 pokeapi::ResourceGroup::Moves => {
                     get_all_entries!(rustemon::moves::move_)
+                }
+                pokeapi::ResourceGroup::Abilities => {
+                    get_all_entries!(rustemon::pokemon::ability)
                 }
             })
         }
@@ -275,6 +290,10 @@ impl ExampleApplicationWindow {
                                     let move_model = rustemon::moves::move_::get_by_name(&resource, rustemon_client()).await?;
                                     _ = content_tx.send(Ok((uuid, ContentMessage::Move(move_model)))).await;
                                 }
+                                pokeapi::ResourceGroup::Abilities => {
+                                    let ability_model = rustemon::pokemon::ability::get_by_name(&resource, rustemon_client()).await?;
+                                    _ = content_tx.send(Ok((uuid, ContentMessage::Ability(ability_model)))).await;
+                                },
                             };
 
                             Ok::<_, anyhow::Error>(())
@@ -373,7 +392,7 @@ impl ExampleApplicationWindow {
 
         // Content Page Handler
         glib::spawn_future_local(
-            clone!(@strong content_rx, @weak pokemon_content_imp, @weak move_content_imp, @weak content_stack, @weak error_status => async move {
+            clone!(@strong content_rx, @weak pokemon_content_imp, @weak move_content_imp, @weak ability_content_imp, @weak content_stack, @weak error_status => async move {
                 fn card_label(label: impl AsRef<str>) -> gtk::Box {
                     let box_ = gtk::Box::builder()
                         .css_classes(["card"])
@@ -444,7 +463,20 @@ impl ExampleApplicationWindow {
 
                                     content_stack.set_visible_child_name("move_page");
                                 }
-                                _ => {}
+                                ContentMessage::Ability(model) => {
+                                    ability_content_imp.name.set_label(&heck::AsTitleCase(model.name).to_string());
+                                    ability_content_imp.effect.set_label(&model.effect_entries.into_iter()
+                                        .filter(|it| it.language.name == "en").map(|it| it.effect).next().unwrap_or("Unknown effect.".into())
+                                    );
+
+                                    ability_content_imp.pokemon_list.remove_all();
+                                    for pokemon in &model.pokemon {
+                                        ability_content_imp.pokemon_list.append(&card_label(&pokemon.pokemon.name));
+                                    }
+
+                                    content_stack.set_visible_child_name("ability_page");
+                                }
+                                ContentMessage::Keep => {}
                             }
                         }
                         Ok((uuid, _)) => {
@@ -468,4 +500,5 @@ pub enum ContentMessage {
     Keep,
     Pokemon((rustemon::model::pokemon::Pokemon, Option<gdk::Texture>)),
     Move(rustemon::model::moves::Move),
+    Ability(rustemon::model::pokemon::Ability),
 }

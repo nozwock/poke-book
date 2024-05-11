@@ -9,6 +9,7 @@ pub enum ResourceGroup {
     #[default]
     Pokemon,
     Moves,
+    Abilities,
 }
 
 impl From<u32> for ResourceGroup {

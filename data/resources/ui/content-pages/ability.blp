@@ -1,0 +1,72 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $AbilityPageContent: Box {
+    orientation: vertical;
+
+    ScrolledWindow {
+        hexpand: true;
+        vexpand: true;
+        hscrollbar-policy: never;
+
+        Box {
+            orientation: vertical;
+            halign: center;
+            valign: center;
+            spacing: 8;
+            margin-top: 12;
+            margin-bottom: 12;
+            margin-start: 12;
+            margin-end: 12;
+
+            Label name {
+                styles [
+                    "title-1"
+                ]
+            }
+
+            Adw.Clamp {
+                maximum-size: 800;
+                tightening-threshold: 600;
+
+                Label effect {
+                    margin-bottom: 12;
+                    wrap: true;
+                    justify: center;
+
+                    styles [
+                        "title-3",
+                        "dim-label"
+                    ]
+                }
+            }
+
+            Separator {}
+
+            Box {
+                orientation: vertical;
+                halign: center;
+                spacing: 6;
+
+                Label {
+                    label: "Possessed by";
+
+                    styles [
+                        "title-2",
+                        "dim-label"
+                    ]
+                }
+
+                FlowBox pokemon_list {
+                    orientation: horizontal;
+                    row-spacing: 6;
+                    column-spacing: 6;
+                    homogeneous: true;
+                    max-children-per-line: 6;
+                    min-children-per-line: 1;
+                    selection-mode: none;
+                }
+            }
+        }
+    }
+}

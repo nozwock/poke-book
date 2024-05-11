@@ -2,6 +2,7 @@
 blueprints = custom_target(
   'blueprints',
   input: files(
+    'ui/content-pages/ability.blp',
     'ui/content-pages/move.blp',
     'ui/content-pages/pokemon.blp',
     'ui/shortcuts.blp',

@@ -6,6 +6,7 @@
     <file compressed="true" preprocess="xml-stripblanks">ui/window.ui</file>
     <file compressed="true" preprocess="xml-stripblanks">ui/content-pages/pokemon.ui</file>
     <file compressed="true" preprocess="xml-stripblanks">ui/content-pages/move.ui</file>
+    <file compressed="true" preprocess="xml-stripblanks">ui/content-pages/ability.ui</file>
     <file compressed="true">style.css</file>
   </gresource>
 </gresources>
