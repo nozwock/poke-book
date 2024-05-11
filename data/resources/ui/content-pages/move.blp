@@ -35,52 +35,56 @@ template $MovePageContent: Box {
                 ]
             }
 
-            Adw.Clamp {
-                maximum-size: 400;
-                tightening-threshold: 300;
+            Box {
+                halign: center;
 
-                Adw.PreferencesGroup {
-                    Adw.ActionRow {
-                        title: "Type";
+                Adw.Clamp {
+                    maximum-size: 400;
+                    tightening-threshold: 300;
 
-                        [suffix]
-                        Label type_ {
-                            styles [
-                                "dim-label"
-                            ]
+                    Adw.PreferencesGroup {
+                        Adw.ActionRow {
+                            title: "Type";
+
+                            [suffix]
+                            Label type_ {
+                                styles [
+                                    "dim-label"
+                                ]
+                            }
                         }
-                    }
 
-                    Adw.ActionRow {
-                        title: "Power";
+                        Adw.ActionRow {
+                            title: "Power";
 
-                        [suffix]
-                        Label power {
-                            styles [
-                                "dim-label"
-                            ]
+                            [suffix]
+                            Label power {
+                                styles [
+                                    "dim-label"
+                                ]
+                            }
                         }
-                    }
 
-                    Adw.ActionRow {
-                        title: "Accuracy";
+                        Adw.ActionRow {
+                            title: "Accuracy";
 
-                        [suffix]
-                        Label accuracy {
-                            styles [
-                                "dim-label"
-                            ]
+                            [suffix]
+                            Label accuracy {
+                                styles [
+                                    "dim-label"
+                                ]
+                            }
                         }
-                    }
 
-                    Adw.ActionRow {
-                        title: "PP";
+                        Adw.ActionRow {
+                            title: "PP";
 
-                        [suffix]
-                        Label pp {
-                            styles [
-                                "dim-label"
-                            ]
+                            [suffix]
+                            Label pp {
+                                styles [
+                                    "dim-label"
+                                ]
+                            }
                         }
                     }
                 }
