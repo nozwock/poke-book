@@ -229,15 +229,15 @@ impl ExampleApplicationWindow {
             })
         }
 
-        // Sidebar
-        let (group_tx, group_rx) = async_channel::unbounded::<anyhow::Result<Vec<String>>>();
+        type GroupEntries = Vec<String>;
+        let (group_tx, group_rx) = async_channel::unbounded::<anyhow::Result<GroupEntries>>();
 
         let (content_tx, content_rx) =
             async_channel::unbounded::<anyhow::Result<(Uuid, ContentMessage)>>();
 
         group_choice
             .connect_selected_item_notify(clone!(@weak sidebar_stack => move |choice| {
-                // TODO: Show the loading page after figuring out how to defer it by 200-400ms?
+                // todo: Show the loading page after figuring out how to defer it by 200-400ms?
                 sidebar_stack.set_visible_child_name("loading_page");
                 let group = pokeapi::ResourceGroup::from(choice.selected());
                 tracing::debug!(?group, "Entered group change handler");
@@ -286,7 +286,7 @@ impl ExampleApplicationWindow {
             }
         );
 
-        // Setting up ListView, Filters and stuff
+        // Sidebar Page Handler
         glib::spawn_future_local(
             clone!(@strong group_rx, @weak browse_list, @weak items_search_entry, @weak sidebar_stack, @weak group_choice => async move {
                 while let Ok(it) = group_rx.recv().await {
@@ -347,8 +347,9 @@ impl ExampleApplicationWindow {
                         selection_model.set_autoselect(false);
                         selection_model.set_model(Some(&filter_model));
 
-                        // note: Connect to click on the ListViewItem instead of item-selected, I think
-                        // ...I don't remember what this note was about, remove it after some time
+                        // todo: Connect to click on the ListViewItem instead of item-selected, I think...
+                        // One reason I see is that some content-page won't be focused if the user clicks on the already selected item,
+                        // this may not be an issue in general, but it's when the window is resized to the mobile size.
                         selection_model.connect_selected_item_notify(clone!(@weak group_choice, @strong signal_content_update => move |model| {
                             if let Some(it) = model.selected_item() {
                                 let uuid = Uuid::new_v4();
@@ -370,6 +371,7 @@ impl ExampleApplicationWindow {
             }),
         );
 
+        // Content Page Handler
         glib::spawn_future_local(
             clone!(@strong content_rx, @weak pokemon_content_imp, @weak move_content_imp, @weak content_stack, @weak error_status => async move {
                 fn card_label(label: impl AsRef<str>) -> gtk::Box {
