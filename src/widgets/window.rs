@@ -460,6 +460,12 @@ impl ExampleApplicationWindow {
                                     };
 
                                     pokemon_content_imp.name.set_label(&heck::AsTitleCase(model.name).to_string());
+                                    pokemon_content_imp.types.set_label(
+                                        &model.types.iter()
+                                            .map(|it| heck::AsTitleCase(&it.type_.name).to_string())
+                                            .collect::<Vec<_>>()
+                                            .join(", ")
+                                    );
                                     pokemon_content_imp.base_exp.set_label(&model.base_experience.unwrap().to_string());
                                     pokemon_content_imp.height.set_label(&model.height.to_string());
                                     pokemon_content_imp.weight.set_label(&model.weight.to_string());
