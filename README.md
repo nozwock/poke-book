@@ -3,7 +3,7 @@
 Your ultimate desktop companion for Pokémon information and fun!
 > <small>Made for the [MLH GHW 2024: API](https://ghw.mlh.io/) event.</small>
 
-![](https://github.com/nozwock/poke-book/assets/57829219/7b7b28ee-b148-4875-b20c-deb7f782b2c3)
+![](https://github.com/nozwock/poke-book/assets/57829219/6a10cdcc-6095-4365-b2f9-f224c8382b1b)
 
 ## Building the project
 Make sure you have `flatpak` and `flatpak-builder` installed. Then run the commands below.
