@@ -262,6 +262,8 @@ impl ExampleApplicationWindow {
             }));
         group_choice.notify("selected-item");
 
+        // todo: Change content-page title name
+        // todo: Also, maintain some page history, so that the user can go back within the content-page
         let signal_content_update = clone!(
             @strong content_tx, @weak content_stack, @weak sidebar_split => move |uuid: Uuid, group: pokeapi::ResourceGroup, resource: String| {
                 glib::spawn_future_local(clone!(@strong content_tx => async move {
@@ -307,7 +309,7 @@ impl ExampleApplicationWindow {
 
         // Sidebar Page Handler
         glib::spawn_future_local(
-            clone!(@strong group_rx, @weak browse_list, @weak items_search_entry, @weak sidebar_stack, @weak group_choice => async move {
+            clone!(@strong group_rx, @strong signal_content_update, @weak browse_list, @weak items_search_entry, @weak sidebar_stack, @weak group_choice => async move {
                 while let Ok(it) = group_rx.recv().await {
                     if let Ok(it) = it {
                         let objs = it.into_iter().map(|it| NamedPokeResourceObject::new(it)).collect::<Vec<_>>();
@@ -392,7 +394,7 @@ impl ExampleApplicationWindow {
 
         // Content Page Handler
         glib::spawn_future_local(
-            clone!(@strong content_rx, @weak pokemon_content_imp, @weak move_content_imp, @weak ability_content_imp, @weak content_stack, @weak error_status => async move {
+            clone!(@strong content_rx, @strong signal_content_update, @weak pokemon_content_imp, @weak move_content_imp, @weak ability_content_imp, @weak content_stack, @weak error_status => async move {
                 fn card_label(label: impl AsRef<str>) -> gtk::Box {
                     let box_ = gtk::Box::builder()
                         .css_classes(["card"])
@@ -409,7 +411,30 @@ impl ExampleApplicationWindow {
                         .margin_bottom(12)
                         .build();
                     box_.append(&label);
+
                     box_
+                }
+
+                fn add_gesture_click<T: IsA<gtk::Widget>>(obj: T, f: impl Fn() + 'static) -> T {
+                    let motion_controller = gtk::EventControllerMotion::new();
+                    motion_controller.connect_enter(|controller, _, _| {
+                        let widget = controller.widget();
+                        // See https://gtk-rs.org/gtk4-rs/stable/latest/docs/gdk4/struct.Cursor.html#method.from_name
+                        let cursor = gdk::Cursor::from_name("pointer", None::<&gdk::Cursor>);
+                        widget.set_cursor(cursor.as_ref());
+                    });
+                    motion_controller.connect_leave(|controller| {
+                        let widget = controller.widget();
+                        widget.set_cursor(None::<&gdk::Cursor>);
+                    });
+
+                    let gesture_controller = gtk::GestureClick::builder().button(gdk::BUTTON_PRIMARY).build();
+                    gesture_controller.connect_pressed(move |_,_,_,_| f());
+
+                    obj.add_controller(gesture_controller);
+                    obj.add_controller(motion_controller);
+
+                    obj
                 }
 
                 let mut keep_msg_uuid = None::<Uuid>;
@@ -443,10 +468,30 @@ impl ExampleApplicationWindow {
                                     pokemon_content_imp.moves_list.remove_all();
                                     for ability in &model.abilities {
                                         // note: No idea how to center the cards...
-                                        pokemon_content_imp.abilities_list.append(&card_label(&ability.ability.name));
+                                        let name = ability.ability.name.clone();
+                                        pokemon_content_imp.abilities_list.append(
+                                            &add_gesture_click(
+                                                card_label(&ability.ability.name),
+                                                clone!(@strong signal_content_update => move ||
+                                                    signal_content_update(
+                                                        Uuid::new_v4(), pokeapi::ResourceGroup::Abilities, name.clone()
+                                                    )
+                                                )
+                                            )
+                                        );
                                     };
                                     for move_ in &model.moves {
-                                        pokemon_content_imp.moves_list.append(&card_label(&move_.move_.name));
+                                        let name = move_.move_.name.clone();
+                                        pokemon_content_imp.moves_list.append(
+                                            &add_gesture_click(
+                                                card_label(&move_.move_.name),
+                                                clone!(@strong signal_content_update => move ||
+                                                    signal_content_update(
+                                                        Uuid::new_v4(), pokeapi::ResourceGroup::Moves, name.clone()
+                                                    )
+                                                )
+                                            )
+                                        );
                                     };
 
                                     content_stack.set_visible_child_name("pokemon_page");
@@ -471,7 +516,17 @@ impl ExampleApplicationWindow {
 
                                     ability_content_imp.pokemon_list.remove_all();
                                     for pokemon in &model.pokemon {
-                                        ability_content_imp.pokemon_list.append(&card_label(&pokemon.pokemon.name));
+                                        let name = pokemon.pokemon.name.clone();
+                                        ability_content_imp.pokemon_list.append(
+                                            &add_gesture_click(
+                                                card_label(&pokemon.pokemon.name),
+                                                clone!(@strong signal_content_update => move ||
+                                                    signal_content_update(
+                                                        Uuid::new_v4(), pokeapi::ResourceGroup::Pokemon, name.clone()
+                                                    )
+                                                )
+                                            )
+                                        );
                                     }
 
                                     content_stack.set_visible_child_name("ability_page");
