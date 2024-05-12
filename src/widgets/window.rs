@@ -308,251 +308,224 @@ impl ExampleApplicationWindow {
         );
 
         // Sidebar Page Handler
-        glib::spawn_future_local(
-            clone!(@strong group_rx, @strong signal_content_update, @weak browse_list, @weak items_search_entry, @weak sidebar_stack, @weak group_choice => async move {
-                while let Ok(it) = group_rx.recv().await {
-                    if let Ok(it) = it {
-                        let objs = it.into_iter().map(|it| NamedPokeResourceObject::new(it)).collect::<Vec<_>>();
-                        let browse_model = gio::ListStore::new::<NamedPokeResourceObject>();
-                        browse_model.extend_from_slice(&objs);
+        glib::spawn_future_local(clone!(
+            @strong group_rx,
+            @strong signal_content_update,
+            @weak browse_list,
+            @weak items_search_entry,
+            @weak sidebar_stack,
+            @weak group_choice => async move {
+            while let Ok(it) = group_rx.recv().await {
+                if let Ok(it) = it {
+                    let objs = it.into_iter().map(|it| NamedPokeResourceObject::new(it)).collect::<Vec<_>>();
+                    let browse_model = gio::ListStore::new::<NamedPokeResourceObject>();
+                    browse_model.extend_from_slice(&objs);
 
-                        let factory = SignalListItemFactory::new();
-                        factory.connect_setup(move |_, list_item| {
-                            let label = Label::builder().xalign(0.).build();
-                            list_item
-                                .downcast_ref::<gtk::ListItem>()
-                                .expect("Value has to be a ListItem")
-                                .set_child(Some(&label));
-                        });
-                        factory.connect_bind(move |_, list_item| {
-                            let resource = list_item
-                                .downcast_ref::<gtk::ListItem>()
-                                .expect("Value has to be a ListItem")
-                                .item()
-                                .and_downcast::<NamedPokeResourceObject>()
-                                .expect("Value has to be a NamedPokeResourceObject");
+                    let factory = SignalListItemFactory::new();
+                    factory.connect_setup(move |_, list_item| {
+                        let label = Label::builder().xalign(0.).build();
+                        list_item
+                            .downcast_ref::<gtk::ListItem>()
+                            .expect("Value has to be a ListItem")
+                            .set_child(Some(&label));
+                    });
+                    factory.connect_bind(move |_, list_item| {
+                        let resource = list_item
+                            .downcast_ref::<gtk::ListItem>()
+                            .expect("Value has to be a ListItem")
+                            .item()
+                            .and_downcast::<NamedPokeResourceObject>()
+                            .expect("Value has to be a NamedPokeResourceObject");
 
-                            let label = list_item
-                                .downcast_ref::<gtk::ListItem>()
-                                .expect("Value has to be a ListItem")
-                                .child()
-                                .and_downcast::<Label>()
-                                .expect("Value has to be a Label");
+                        let label = list_item
+                            .downcast_ref::<gtk::ListItem>()
+                            .expect("Value has to be a ListItem")
+                            .child()
+                            .and_downcast::<Label>()
+                            .expect("Value has to be a Label");
 
-                            let name = heck::AsTitleCase(resource.name()).to_string();
-                            label.set_label(&name);
-                        });
+                        let name = heck::AsTitleCase(resource.name()).to_string();
+                        label.set_label(&name);
+                    });
 
-                        // note: There seems to be some issue with search too.
-                        // Sometimes, no entries are shown while the search entry is empty.
-                        let fuzzy_filter = gtk::CustomFilter::new(clone!(@weak items_search_entry => @default-return true, move |resource| {
-                            let resource = resource
-                                .downcast_ref::<NamedPokeResourceObject>()
-                                .expect("Value has to be a NamedPokeResourceObject");
+                    // note: There seems to be some issue with search too.
+                    // Sometimes, no entries are shown while the search entry is empty.
+                    let fuzzy_filter = gtk::CustomFilter::new(clone!(@weak items_search_entry => @default-return true, move |resource| {
+                        let resource = resource
+                            .downcast_ref::<NamedPokeResourceObject>()
+                            .expect("Value has to be a NamedPokeResourceObject");
 
-                            match items_search_entry.text().as_str().trim() {
-                                "" => true,
-                                s => {
-                                    skim_matcher().fuzzy_match(&resource.name(), s).is_some()
-                                }
+                        match items_search_entry.text().as_str().trim() {
+                            "" => true,
+                            s => {
+                                skim_matcher().fuzzy_match(&resource.name(), s).is_some()
                             }
-                        }));
+                        }
+                    }));
 
-                        items_search_entry.connect_changed(clone!(@weak fuzzy_filter => move |_| {
-                            fuzzy_filter.changed(gtk::FilterChange::Different);
-                        }));
+                    items_search_entry.connect_changed(clone!(@weak fuzzy_filter => move |_| {
+                        fuzzy_filter.changed(gtk::FilterChange::Different);
+                    }));
 
-                        let filter_model = gtk::FilterListModel::new(Some(browse_model), Some(fuzzy_filter));
+                    let filter_model = gtk::FilterListModel::new(Some(browse_model), Some(fuzzy_filter));
 
-                        let selection_model = SingleSelection::new(None::<gtk::FilterListModel>);
-                        selection_model.set_autoselect(false);
-                        selection_model.set_model(Some(&filter_model));
+                    let selection_model = SingleSelection::new(None::<gtk::FilterListModel>);
+                    selection_model.set_autoselect(false);
+                    selection_model.set_model(Some(&filter_model));
 
-                        // todo: Connect to click on the ListViewItem instead of item-selected, I think...
-                        // One reason I see is that some content-page won't be focused if the user clicks on the already selected item,
-                        // this may not be an issue in general, but it's when the window is resized to the mobile size.
-                        selection_model.connect_selected_item_notify(clone!(@weak group_choice, @strong signal_content_update => move |model| {
-                            if let Some(it) = model.selected_item() {
-                                let uuid = Uuid::new_v4();
-                                let resource_name = it.downcast_ref::<NamedPokeResourceObject>().unwrap().name();
-                                tracing::debug!(?resource_name, %uuid, "Selected an item");
+                    // todo: Connect to click on the ListViewItem instead of item-selected, I think...
+                    // One reason I see is that some content-page won't be focused if the user clicks on the already selected item,
+                    // this may not be an issue in general, but it's when the window is resized to the mobile size.
+                    selection_model.connect_selected_item_notify(clone!(@weak group_choice, @strong signal_content_update => move |model| {
+                        if let Some(it) = model.selected_item() {
+                            let uuid = Uuid::new_v4();
+                            let resource_name = it.downcast_ref::<NamedPokeResourceObject>().unwrap().name();
+                            tracing::debug!(?resource_name, %uuid, "Selected an item");
 
-                                signal_content_update(uuid, pokeapi::ResourceGroup::from(group_choice.selected()), resource_name);
-                            }
-                        }));
+                            signal_content_update(uuid, pokeapi::ResourceGroup::from(group_choice.selected()), resource_name);
+                        }
+                    }));
 
-                        browse_list.set_model(Some(&selection_model));
-                        browse_list.set_factory(Some(&factory));
+                    browse_list.set_model(Some(&selection_model));
+                    browse_list.set_factory(Some(&factory));
 
-                        sidebar_stack.set_visible_child_name("browse_page");
-                    } else {
-                        sidebar_stack.set_visible_child_name("error_page");
-                    }
+                    sidebar_stack.set_visible_child_name("browse_page");
+                } else {
+                    sidebar_stack.set_visible_child_name("error_page");
                 }
-            }),
-        );
+            }
+        }));
 
         // Content Page Handler
-        glib::spawn_future_local(
-            clone!(@strong content_rx, @strong signal_content_update, @weak pokemon_content_imp, @weak move_content_imp, @weak ability_content_imp, @weak content_stack, @weak error_status => async move {
-                fn card_label(label: impl AsRef<str>) -> gtk::Box {
-                    let box_ = gtk::Box::builder()
-                        .css_classes(["card"])
-                        // .vexpand(true)
-                        // .hexpand(true)
-                        .build();
-                    let label = gtk::Label::builder()
-                        .label(&heck::AsTitleCase(label.as_ref()).to_string())
-                        .vexpand(true)
-                        .hexpand(true)
-                        .margin_start(12)
-                        .margin_end(12)
-                        .margin_top(12)
-                        .margin_bottom(12)
-                        .build();
-                    box_.append(&label);
+        glib::spawn_future_local(clone!(
+            @strong content_rx,
+            @strong signal_content_update,
+            @weak pokemon_content_imp,
+            @weak move_content_imp,
+            @weak ability_content_imp,
+            @weak content_stack,
+            @weak error_status => async move {
+            fn button_to_content(
+                signal_update: impl Fn(Uuid, pokeapi::ResourceGroup, String) + 'static,
+                group: pokeapi::ResourceGroup,
+                resource: impl AsRef<str>
+            ) -> impl IsA<gtk::Widget> {
+                let button = gtk::Button::builder()
+                    .label(&heck::AsTitleCase(resource.as_ref()).to_string())
+                    .css_classes(["card"])
+                    .build();
 
-                    box_
-                }
+                let label = button.child().unwrap().downcast::<gtk::Label>().unwrap();
+                label.set_margin_bottom(12);
+                label.set_margin_top(12);
+                label.set_margin_start(12);
+                label.set_margin_end(12);
 
-                fn add_gesture_click<T: IsA<gtk::Widget>>(obj: T, f: impl Fn() + 'static) -> T {
-                    let motion_controller = gtk::EventControllerMotion::new();
-                    motion_controller.connect_enter(|controller, _, _| {
-                        let widget = controller.widget();
-                        // See https://gtk-rs.org/gtk4-rs/stable/latest/docs/gdk4/struct.Cursor.html#method.from_name
-                        let cursor = gdk::Cursor::from_name("pointer", None::<&gdk::Cursor>);
-                        widget.set_cursor(cursor.as_ref());
-                    });
-                    motion_controller.connect_leave(|controller| {
-                        let widget = controller.widget();
-                        widget.set_cursor(None::<&gdk::Cursor>);
-                    });
+                let resource = resource.as_ref().to_string();
+                button.connect_clicked(move |_| {
+                    signal_update(Uuid::new_v4(), group, resource.clone());
+                });
 
-                    let gesture_controller = gtk::GestureClick::builder().button(gdk::BUTTON_PRIMARY).build();
-                    gesture_controller.connect_pressed(move |_,_,_,_| f());
+                button
+            }
 
-                    obj.add_controller(gesture_controller);
-                    obj.add_controller(motion_controller);
+            let mut keep_msg_uuid = None::<Uuid>;
 
-                    obj
-                }
+            while let Ok(it) = content_rx.recv().await {
+                match it {
+                    Ok((uuid, ContentMessage::Keep)) => {
+                        keep_msg_uuid = Some(uuid);
+                    }
+                    Ok((uuid, msg)) if keep_msg_uuid == Some(uuid) => {
+                        match msg {
+                            ContentMessage::Pokemon((model, texture)) => {
+                                // todo: Could also send model and texture in different message, that'd allow to load model first
+                                // as fetching the sprite will probably take longer than that
 
-                let mut keep_msg_uuid = None::<Uuid>;
-
-                while let Ok(it) = content_rx.recv().await {
-                    match it {
-                        Ok((uuid, ContentMessage::Keep)) => {
-                            keep_msg_uuid = Some(uuid);
-                        }
-                        Ok((uuid, msg)) if keep_msg_uuid == Some(uuid) => {
-                            match msg {
-                                ContentMessage::Pokemon((model, texture)) => {
-                                    // todo: Could also send model and texture in different message, that'd allow to load model first
-                                    // as fetching the sprite will probably take longer than that
-
-                                    match texture {
-                                        Some(texture) => {
-                                            pokemon_content_imp.main_sprite.set_paintable(Some(&texture));
-                                        }
-                                        None => {
-                                            pokemon_content_imp.main_sprite.set_icon_name(Some("view-paged-symbolic"));
-                                        }
-                                    };
-
-                                    pokemon_content_imp.name.set_label(&heck::AsTitleCase(model.name).to_string());
-                                    pokemon_content_imp.types.set_label(
-                                        &model.types.iter()
-                                            .map(|it| heck::AsTitleCase(&it.type_.name).to_string())
-                                            .collect::<Vec<_>>()
-                                            .join(", ")
-                                    );
-                                    pokemon_content_imp.base_exp.set_label(&model.base_experience.unwrap().to_string());
-                                    pokemon_content_imp.height.set_label(&model.height.to_string());
-                                    pokemon_content_imp.weight.set_label(&model.weight.to_string());
-
-                                    pokemon_content_imp.abilities_list.remove_all();
-                                    pokemon_content_imp.moves_list.remove_all();
-                                    for ability in &model.abilities {
-                                        // note: No idea how to center the cards...
-                                        let name = ability.ability.name.clone();
-                                        pokemon_content_imp.abilities_list.append(
-                                            &add_gesture_click(
-                                                card_label(&ability.ability.name),
-                                                clone!(@strong signal_content_update => move ||
-                                                    signal_content_update(
-                                                        Uuid::new_v4(), pokeapi::ResourceGroup::Abilities, name.clone()
-                                                    )
-                                                )
-                                            )
-                                        );
-                                    };
-                                    for move_ in &model.moves {
-                                        let name = move_.move_.name.clone();
-                                        pokemon_content_imp.moves_list.append(
-                                            &add_gesture_click(
-                                                card_label(&move_.move_.name),
-                                                clone!(@strong signal_content_update => move ||
-                                                    signal_content_update(
-                                                        Uuid::new_v4(), pokeapi::ResourceGroup::Moves, name.clone()
-                                                    )
-                                                )
-                                            )
-                                        );
-                                    };
-
-                                    content_stack.set_visible_child_name("pokemon_page");
-                                }
-                                ContentMessage::Move(model) => {
-                                    move_content_imp.name.set_label(&heck::AsTitleCase(model.name).to_string());
-                                    move_content_imp.effect.set_label(&model.effect_entries.into_iter()
-                                        .filter(|it| it.language.name == "en").map(|it| it.short_effect).next().unwrap_or("Unknown effect.".into())
-                                    );
-                                    move_content_imp.power.set_label(&model.power.map_or_else(|| "—".into(), |it| it.to_string()));
-                                    move_content_imp.accuracy.set_label(&model.accuracy.map_or_else(|| "—".into(), |it| it.to_string()));
-                                    move_content_imp.pp.set_label(&model.pp.map_or_else(|| "—".into(), |it| it.to_string()));
-                                    move_content_imp.type_.set_label(&heck::AsTitleCase(model.type_.name).to_string());
-
-                                    content_stack.set_visible_child_name("move_page");
-                                }
-                                ContentMessage::Ability(model) => {
-                                    ability_content_imp.name.set_label(&heck::AsTitleCase(model.name).to_string());
-                                    ability_content_imp.effect.set_label(&model.effect_entries.into_iter()
-                                        .filter(|it| it.language.name == "en").map(|it| it.effect).next().unwrap_or("Unknown effect.".into())
-                                    );
-
-                                    ability_content_imp.pokemon_list.remove_all();
-                                    for pokemon in &model.pokemon {
-                                        let name = pokemon.pokemon.name.clone();
-                                        ability_content_imp.pokemon_list.append(
-                                            &add_gesture_click(
-                                                card_label(&pokemon.pokemon.name),
-                                                clone!(@strong signal_content_update => move ||
-                                                    signal_content_update(
-                                                        Uuid::new_v4(), pokeapi::ResourceGroup::Pokemon, name.clone()
-                                                    )
-                                                )
-                                            )
-                                        );
+                                match texture {
+                                    Some(texture) => {
+                                        pokemon_content_imp.main_sprite.set_paintable(Some(&texture));
                                     }
+                                    None => {
+                                        pokemon_content_imp.main_sprite.set_icon_name(Some("view-paged-symbolic"));
+                                    }
+                                };
 
-                                    content_stack.set_visible_child_name("ability_page");
-                                }
-                                ContentMessage::Keep => {}
+                                pokemon_content_imp.name.set_label(&heck::AsTitleCase(model.name).to_string());
+                                pokemon_content_imp.types.set_label(
+                                    &model.types.iter()
+                                        .map(|it| heck::AsTitleCase(&it.type_.name).to_string())
+                                        .collect::<Vec<_>>()
+                                        .join(", ")
+                                );
+                                pokemon_content_imp.base_exp.set_label(&model.base_experience.unwrap().to_string());
+                                pokemon_content_imp.height.set_label(&model.height.to_string());
+                                pokemon_content_imp.weight.set_label(&model.weight.to_string());
+
+                                pokemon_content_imp.abilities_list.remove_all();
+                                pokemon_content_imp.moves_list.remove_all();
+                                for ability in &model.abilities {
+                                    // note: No idea how to center the cards in Flowbox...
+                                    pokemon_content_imp.abilities_list.append(
+                                        &clone!(@strong signal_content_update => move || {
+                                                button_to_content(signal_content_update, pokeapi::ResourceGroup::Abilities, &ability.ability.name)
+                                        })()
+                                    );
+                                };
+                                for move_ in &model.moves {
+                                    pokemon_content_imp.moves_list.append(
+                                        &clone!(@strong signal_content_update => move || {
+                                                button_to_content(signal_content_update, pokeapi::ResourceGroup::Moves, &move_.move_.name)
+                                        })()
+                                    );
+                                };
+
+                                content_stack.set_visible_child_name("pokemon_page");
                             }
-                        }
-                        Ok((uuid, _)) => {
-                            tracing::debug!(?uuid, "Dropped message");
-                        }
-                        Err(err) => {
-                            // todo: Will have to do the same thing for errors, to only display error for the last clicked item
-                            tracing::error!(%err);
-                            error_status.set_description(Some(&err.to_string()));
-                            content_stack.set_visible_child_name("error_page");
+                            ContentMessage::Move(model) => {
+                                move_content_imp.name.set_label(&heck::AsTitleCase(model.name).to_string());
+                                move_content_imp.effect.set_label(&model.effect_entries.into_iter()
+                                    .filter(|it| it.language.name == "en").map(|it| it.short_effect).next().unwrap_or("Unknown effect.".into())
+                                );
+                                move_content_imp.power.set_label(&model.power.map_or_else(|| "—".into(), |it| it.to_string()));
+                                move_content_imp.accuracy.set_label(&model.accuracy.map_or_else(|| "—".into(), |it| it.to_string()));
+                                move_content_imp.pp.set_label(&model.pp.map_or_else(|| "—".into(), |it| it.to_string()));
+                                move_content_imp.type_.set_label(&heck::AsTitleCase(model.type_.name).to_string());
+
+                                content_stack.set_visible_child_name("move_page");
+                            }
+                            ContentMessage::Ability(model) => {
+                                ability_content_imp.name.set_label(&heck::AsTitleCase(model.name).to_string());
+                                ability_content_imp.effect.set_label(&model.effect_entries.into_iter()
+                                    .filter(|it| it.language.name == "en").map(|it| it.effect).next().unwrap_or("Unknown effect.".into())
+                                );
+
+                                ability_content_imp.pokemon_list.remove_all();
+                                for pokemon in &model.pokemon {
+                                    ability_content_imp.pokemon_list.append(
+                                        &clone!(@strong signal_content_update => move || {
+                                                button_to_content(signal_content_update, pokeapi::ResourceGroup::Pokemon, &pokemon.pokemon.name)
+                                        })()
+                                    );
+                                }
+
+                                content_stack.set_visible_child_name("ability_page");
+                            }
+                            ContentMessage::Keep => {}
                         }
                     }
+                    Ok((uuid, _)) => {
+                        tracing::debug!(?uuid, "Dropped message");
+                    }
+                    Err(err) => {
+                        // todo: Will have to do the same thing for errors, to only display error for the last clicked item
+                        tracing::error!(%err);
+                        error_status.set_description(Some(&err.to_string()));
+                        content_stack.set_visible_child_name("error_page");
+                    }
                 }
-            }),
-        );
+            }
+        }));
     }
 }
 
